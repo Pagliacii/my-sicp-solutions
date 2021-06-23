@@ -1,0 +1,68 @@
+#+title:     Exercises in SICP
+#+author:    Jason Huang
+#+email:     huangmianrui0310@outlook.com
+#+date:      <2021-02-10 Wed>
+
+#+description: Exercises and solutions in SICP
+#+keywords: sicp, exercises, solutions, lisp, scheme
+#+language: en
+#+startup: content
+#+exclude_tags: TOC noexport
+
+#+LATEX_HEADER: \usepackage{enumerate}
+
+#+name: show-file-content
+#+header: :exports none :tangle no :results value raw
+#+header: :var path="./README.org"
+#+header: :var start=1 :var end=-1
+#+begin_src emacs-lisp
+(substring
+  (shell-command-to-string
+    (format "sed -n '%d,%sp;d' %s"
+            start
+            (cond ((integerp end)
+                   (if (= end -1)
+                       "$"
+                     end))
+                  ((char-or-string-p end)
+                   (if (string-match "\\+\\([0-9]+\\)$" end)
+                       (+ (string-to-number (match-string 1 end)) start)
+                     "$"))
+                  (t "$"))
+            path
+            ))
+  0
+  -1)
+#+end_src
+
+* Table of Contents :TOC:
+- [[#chapter-1-building-abstractions-with-procedures][Chapter 1 Building Abstractions with Procedures]]
+- [[#chapter-2-building-abstractions-with-data][Chapter 2 Building Abstractions with Data]]
+- [[#chapter-3-modularity-objects-and-state][Chapter 3 Modularity, Objects and State]]
+- [[#chapter-4-metalinguistic-abstraction][Chapter 4 Metalinguistic Abstraction]]
+- [[#chapter-5-computing-with-register-machines][Chapter 5 Computing with Register Machines]]
+- [[#references][References]]
+
+* [[file:chapter-1-exercises.org::*Chapter 1 Building Abstractions with Procedures][Chapter 1 Building Abstractions with Procedures]]
+
+#+include: "./chapter-1-exercises.org::*Chapter 1 Building Abstractions with Procedures" :only-contents t
+
+* [[file:chapter-2-exercises.org::*Chapter 2 Building Abstractions with Data][Chapter 2 Building Abstractions with Data]]
+
+#+include: "./chapter-2-exercises.org::*Chapter 2 Building Abstractions with Data" :only-contents t
+
+* [[file:chapter-3-exercises.org::*Chapter 3 Modularity, Objects and State][Chapter 3 Modularity, Objects and State]]
+
+#+include: "./chapter-3-exercises.org::*Chapter 3 Modularity, Objects and State" :only-contents t
+
+* [[file:chapter-4-exercises.org::*Chapter 4 Metalinguistic Abstraction][Chapter 4 Metalinguistic Abstraction]]
+
+#+include: "./chapter-4-exercises.org::*Chapter 4 Metalinguistic Abstraction" :only-contents t
+
+* [[file:chapter-5-exercises.org::*Chapter 5 Computing with Register Machines][Chapter 5 Computing with Register Machines]]
+
+#+include: "./chapter-5-exercises.org::*Chapter 5 Computing with Register Machines" :only-contents t
+
+* [[file:references.org::*References][References]]
+
+#+include: "./references.org::*References" :only-contents t

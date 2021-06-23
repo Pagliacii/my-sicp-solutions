@@ -1,0 +1,624 @@
+#+title:     Examples in SICP
+#+author:    Jason Huang
+#+email:     huangmianrui0310@outlook.com
+#+date:      <2021-02-10 Wed>
+
+#+description: Some example codes and running results in SICP
+#+keywords: sicp, examples, lisp, scheme
+#+language: en
+#+startup: content
+
+* Table of Contents :TOC:
+- [[#chapter-1-building-abstractions-with-procedures][Chapter 1. Building Abstractions with Procedures]]
+  - [[#12-procedures-and-the-processes-they-generate][1.2 Procedures and the Processes They Generate]]
+  - [[#13-formulating-abstractions-with-higher-order-procedures][1.3 Formulating Abstractions with Higher-Order Procedures]]
+- [[#chapter-2-building-abstractions-with-data][Chapter 2. Building Abstractions with Data]]
+  - [[#21-introduction-to-data-abstraction][2.1 Introduction to Data Abstraction]]
+
+* Chapter 1. Building Abstractions with Procedures
+
+** 1.2 Procedures and the Processes They Generate
+
+*** 1.2.1 Linear Recursion and Iteration
+
+#+name: recursive
+#+begin_src scheme
+(define (factorial n)
+  (if (= n 1)
+      1
+      (* n (factorial (- n 1)))))
+
+(factorial 6)
+#+end_src
+
+#+RESULTS: recursive
+: 720
+
+#+name: iterative
+#+begin_src scheme
+(define (factorial n)
+  (fact-iter 1 1 n))
+
+(define (fact-iter product counter max-count)
+  (if (> counter max-count)
+      product
+    (fact-iter (* counter product)
+               (+ counter 1)
+               max-count)))
+
+(factorial 6)
+#+end_src
+
+#+RESULTS: iterative
+: 720
+
+*** 1.2.2 Tree Recursion
+:PROPERTIES:
+:CUSTOM_ID: section-1.2.2
+:END:
+
+#+name: recursive-fib
+#+begin_src scheme
+(define (fib n)
+  (cond ((= n 0) 0)
+        ((= n 1) 1)
+        (else (+ (fib (- n 1))
+               (fib (- n 2))))))
+
+(fib 8)
+#+end_src
+
+#+RESULTS: recursive-fib
+: 21
+
+#+name: iterative-fib
+#+begin_src scheme
+(define (fib n)
+  (fib-iter 1 0 n))
+(define (fib-iter a b count)
+  (if (= count 0)
+      b
+    (fib-iter (+ a b) a (- count 1))))
+
+(fib 8)
+#+end_src
+
+#+RESULTS: iterative-fib
+: 21
+
+#+name: counting-change
+#+begin_src scheme
+(define (count-change amount) (cc amount 5))
+(define (cc amount kinds-of-coins)
+  (cond ((= amount 0) 1)
+        ((or (< amount 0) (= kinds-of-coins 0)) 0)
+        (else (+ (cc amount
+                     (- kinds-of-coins 1))
+                 (cc (- amount
+                        (first-denomination
+                         kinds-of-coins))
+                     kinds-of-coins)))))
+(define (first-denomination kinds-of-coins)
+  (cond ((= kinds-of-coins 1) 1)
+        ((= kinds-of-coins 2) 5)
+        ((= kinds-of-coins 3) 10)
+        ((= kinds-of-coins 4) 25)
+        ((= kinds-of-coins 5) 50)))
+
+(count-change 100)
+#+end_src
+
+#+RESULTS: counting-change
+: 292
+
+*** 1.2.4 Exponentiation
+
+\begin{align*}
+b^{n}&=b\cdot b^{n-1},\\
+b^{0}&=1
+\end{align*}
+
+#+name: linear-recursive-expt
+#+begin_src scheme
+(define (expt b n)
+  (if (= n 0)
+      1
+      (* b (expt b (- n 1)))))
+#+end_src
+
+Requires \(\Theta(n)\) steps and \(\Theta(n)\) space.
+
+#+name: linear-iterative-expt
+#+begin_src scheme
+(define (expt b n)
+  (expt-iter b n 1))
+(define (expt-iter b counter product)
+  (if (= counter 0)
+      product
+      (expt-iter b
+                 (- counter 1)
+                 (* b product))))
+#+end_src
+
+Requires \(\Theta(n)\) steps and \(\Theta(1)\) space.
+
+\begin{align*}
+b^{n}&=(b^{n/2})^{2}\ \ \ \ \text{if }n\text{ is even},\\
+b^{n}&=b\cdot b^{n-1}\ \ \ \ \text{if }n\text{ is odd}.
+\end{align*}
+
+#+name: fast-expt
+#+begin_src scheme
+(define (fast-expt b n)
+  (cond ((= n 0) 1)
+        ((even? n) (square (fast-expt b (/ n 2))))
+        (else (* b (fast-expt b (- n 1))))))
+(define (even? n)
+  (= (remainder n 2) 0))
+#+end_src
+
+*** 1.2.5 Greatest Common Divisors
+This method for computing the =GCD= is known as /Euclid's Algorithm/.
+
+\begin{align*}
+\mathtt{GCD(a,b)}&=\mathtt{GCD(b,r)} \\
+\mathtt{GCD(206,40)}&=\mathtt{GCD(40,6)} \\
+&=\mathtt{GCD(6,4)} \\
+&=\mathtt{GCD(4,2)} \\
+&=\mathtt{GCD(2,0)} \\
+&=\mathtt{2}
+\end{align*}
+
+#+name: gcd
+#+begin_src scheme
+(define (gcd a b)
+  (if (= b 0)
+      a
+      (gcd b (remainder a b))))
+#+end_src
+
+*** 1.2.6 Example: Testing for Primality
+**** Searching for divisors
+#+name: smallest-divisor
+#+begin_src scheme
+(define (smallest-divisor n) (find-divisor n 2))
+(define (find-divisor n test-divisor)
+  (cond ((> (square test-divisor) n) n)
+        ((divides? test-divisor n) test-divisor)
+        (else (find-divisor n (+ test-divisor 1)))))
+(define (divides? a b) (= (remainder b a) 0))
+#+end_src
+
+#+name: prime-test
+#+begin_src scheme
+(define (prime? n)
+  (= n (smallest-divisor n)))
+#+end_src
+
+**** The Fermat test
+#+begin_quote
+*Fermat's Little Theorem*: If ~n~ is a prime number and ~a~ is any positive integer less than ~n~, then ~a~ raised to the \(n^{\mathrm{th}}\) power is congruent to ~a~ modulo ~n~.
+#+end_quote
+
+#+name: expmod
+#+begin_src scheme
+(define (expmod base exp m)
+  (cond ((= exp 0) 1)
+        ((even? exp)
+         (remainder
+          (square (expmod base (/ exp 2) m))
+          m))
+        (else
+         (remainder
+          (* base (expmod base (- exp 1) m))
+          m))))
+#+end_src
+
+#+name: fermat-test
+#+begin_src scheme
+(define (fermat-test n)
+  (define (try-it a)
+    (= (expmod a n n) a))
+  (try-it (+ 1 (random (- n 1)))))
+#+end_src
+
+#+name: fast-prime-test
+#+begin_src scheme
+(define (fast-prime? n times)
+  (cond ((= times 0) true)
+        ((fermat-test n) (fast-prime? n (- times 1)))
+        (else false)))
+#+end_src
+
+**** Probabilistic methods
+** 1.3 Formulating Abstractions with Higher-Order Procedures
+
+#+name: cube
+#+begin_src scheme
+(define (cube x) (* x x x))
+#+end_src
+
+*** 1.3.1 Procedures as Arguments
+
+#+name: sum-integers
+#+begin_src scheme
+(define (sum-integers a b)
+  (if (> a b)
+      0
+      (+ a (sum-integers (+ a 1) b))))
+#+end_src
+
+#+name: sum-cubes
+#+begin_src scheme
+(define (sum-cubes a b)
+  (if (> a b)
+      0
+      (+ (cube a)
+         (sum-cubes (+ a 1) b))))
+#+end_src
+
+#+name: pi-sum
+#+begin_src scheme
+(define (pi-sum a b)
+  (if (> a b)
+      0
+      (+ (/ 1.0 (* a (+ a 2)))
+         (pi-sum (+ a 4) b))))
+#+end_src
+
+#+name: sum-term-next
+#+begin_src scheme
+(define (sum term a next b)
+  (if (> a b)
+      0
+      (+ (term a)
+         (sum term (next a) next b))))
+#+end_src
+
+#+name: inc
+#+begin_src scheme
+(define (inc n) (+ n 1))
+#+end_src
+
+#+name: sum-cube-inc
+#+begin_src scheme
+(define (sum-cubes a b)
+  (sum cube a inc b))
+#+end_src
+
+#+begin_src scheme :noweb yes
+<<cube>>
+<<inc>>
+<<sum-term-next>>
+<<sum-cube-inc>>
+(sum-cubes 1 10)
+#+end_src
+
+#+RESULTS:
+: 3025
+
+#+name: identity
+#+begin_src scheme
+(define (identity x) x)
+#+end_src
+
+#+name: sum-identity-inc
+#+begin_src scheme
+(define (sum-integers a b)
+  (sum identity a inc b))
+#+end_src
+
+#+begin_src scheme :noweb yes
+<<inc>>
+<<identity>>
+<<sum-term-next>>
+<<sum-identity-inc>>
+(sum-integers 1 10)
+#+end_src
+
+#+RESULTS:
+: 55
+
+#+name: sum-pi-term-next
+#+begin_src scheme
+(define (pi-sum a b)
+  (define (pi-term x)
+    (/ 1.0 (* x (+ x 2))))
+  (define (pi-next x)
+    (+ x 4))
+  (sum pi-term a pi-next b))
+#+end_src
+
+#+begin_src scheme :noweb yes
+<<sum-term-next>>
+<<sum-pi-term-next>>
+(* 8 (pi-sum 1 1000))
+#+end_src
+
+#+RESULTS:
+: 3.139592655589783
+
+#+name: integral
+#+begin_src scheme
+(define (integral f a b dx)
+  (define (add-dx x)
+    (+ x dx))
+  (* (sum f (+ a (/ dx 2.0)) add-dx b)
+     dx))
+#+end_src
+
+#+begin_src scheme :noweb yes :results output
+<<cube>>
+<<sum-term-next>>
+<<integral>>
+(display (integral cube 0 1 0.01))  (newline)
+(display (integral cube 0 1 0.001)) (newline)
+#+end_src
+
+#+RESULTS:
+: 0.24998750000000042
+: 0.249999875000001
+
+*** 1.3.2 Constructing Procedures Using ~lambda~
+
+#+name: lambda-examples
+#+begin_src scheme
+(lambda (x) (+ x 4))
+(lambda (x) (/ 1.0 (* x (+ x 2))))
+
+(define (pi-sum a b)
+  (sum (lambda (x) (/ 1.0 (* x (+ x 2))))
+       a
+       (lambda (x) (+ x 4))
+       b))
+
+(define (integral f a b dx)
+  (* (sum f
+          (+ a (/ dx 2.0))
+          (lambda (x) (+ x dx))
+          b)
+     dx))
+#+end_src
+
+#+name: lambda-expression-as-operator
+#+begin_src scheme
+((lambda (x y z) (+ x y ((lambda (n) (* n n)) z)))
+ 1 2 3)
+#+end_src
+
+#+RESULTS: lambda-expression-as-operator
+: 12
+
+**** Using ~let~ to create local variables
+
+#+begin_src scheme
+(define (f x y)
+  (define (f-helper a b)
+    (+ (* x (square a))
+       (* y b)
+       (* a b)))
+  (f-helper (+ 1 (* x y))
+            (- 1 y)))
+#+end_src
+
+#+begin_src scheme
+(define (f x y)
+  ((lambda (a b)
+     (+ (* x (square a))
+        (* y b)
+        (* a b)))
+   (+ 1 (* x y))
+   (- 1 y)))
+#+end_src
+
+#+begin_src scheme
+(define (f x y)
+  (let ((a (+ 1 (* x y)))
+        (b (- 1 y)))
+    (+ (* x (square a))
+       (* y b)
+       (* a b))))
+#+end_src
+
+*** 1.3.3 Procedures as General Methods
+:PROPERTIES:
+:CUSTOM_ID: section-1.3.3
+:END:
+
+**** Finding roots of equations by the half-interval method
+
+#+name: half-interval-method
+#+begin_src scheme
+(define (search f neg-point pos-point)
+  (let ((midpoint (average neg-point pos-point)))
+    (if (close-enough? neg-point pos-point)
+        midpoint
+        (let ((test-value (f midpoint)))
+          (cond ((positive? test-value)
+                 (search f neg-point midpoint))
+                ((negative? test-value)
+                 (search f midpoint pos-point))
+                (else midpoint))))))
+
+(define (close-enough? x y) (< (abs (- x y)) 0.001))
+
+(define (half-interval-method f a b)
+  (let ((a-value (f a))
+        (b-value (f b)))
+    (cond ((and (negative? a-value) (positive? b-value))
+           (search f a b))
+          ((and (negative? b-value) (positive? a-value))
+           (search f b a))
+          (else
+           (error "Values are not of opposite sign" a b)))))
+#+end_src
+
+#+begin_src scheme :noweb yes :results output :exports none
+<<half-interval-method>>
+(define (average a b) (/ (+ a b) 2.0))
+(display (half-interval-method sin 2.0 4.0)) (newline)
+(display (half-interval-method (lambda (x) (- (* x x x) (* 2 x) 3))
+                               1.0
+                               2.0)) (newline)
+#+end_src
+
+#+RESULTS:
+: 3.14111328125
+: 1.89306640625
+
+**** Finding fixed points of functions
+
+#+name: fixed-point
+#+begin_src scheme
+(define tolerance 0.00001)
+(define (fixed-point f first-guess)
+  (define (close-enough? v1 v2)
+    (< (abs (- v1 v2))
+       tolerance))
+  (define (try guess)
+    (let ((next (f guess)))
+      (if (close-enough? guess next)
+          next
+          (try next))))
+  (try first-guess))
+#+end_src
+
+#+begin_src scheme :noweb yes :results output
+<<fixed-point>>
+(displayln (fixed-point cos 1.0))
+(displayln (fixed-point (lambda (y) (+ (sin y) (cos y))) 1.0))
+#+end_src
+
+#+RESULTS:
+: 0.7390822985224024
+: 1.2587315962971173
+
+#+begin_src scheme :noweb yes :results output
+<<fixed-point>>
+(define (sqrt x)
+  (fixed-point (lambda (y) (/ (+ y (/ x y)) 2.0))
+               1.0))
+
+(displayln (sqrt 2))
+#+end_src
+
+#+RESULTS:
+: 1.4142135623746899
+
+*** 1.3.4 Procedures as Returned Values
+:PROPERTIES:
+:header-args:scheme: :noweb yes :results output
+:END:
+
+#+begin_src scheme
+(define (average-damp f)
+  (lambda (x) (average x (f x))))
+(define (sqrt x)
+  (fixed-point (average-damp (lambda (y) (/ x y)))
+               1.0))
+(define (cube-root x)
+  (fixed-point (average-damp (lambda (y) (/ x (square y))))
+               1.0))
+#+end_src
+
+**** Newton's method
+
+\[Dg(x)=\frac{g(x+dx)-g(x)}{dx}\]
+
+#+name: derivative
+#+begin_src scheme
+(define (deriv g)
+  (lambda (x) (/ (- (g (+ x dx)) (g x)) dx)))
+(define dx 0.00001)
+#+end_src
+
+#+begin_src scheme
+<<derivative>>
+(define (cube x) (* x x x))
+(displayln ((deriv cube) 5))
+#+end_src
+
+#+RESULTS:
+: 75.00014999664018
+
+\[f(x)=x-\frac{g(x)}{Dg(x)}\]
+
+#+name: newtons-method-fixed-point
+#+begin_src scheme
+(define (newton-transform g)
+  (lambda (x) (- x (/ (g x) ((deriv g) x)))))
+(define (newtons-method g guess)
+  (fixed-point (newton-transform g) guess))
+#+end_src
+
+\[y\mapsto y^2-x\]
+
+#+name: square-root
+#+begin_src scheme
+(define (sqrt x)
+  (newtons-method
+   (lambda (y) (- (square y) x)) 1.0))
+#+end_src
+
+**** Abstractions and first-class procedures
+
+#+name: fixed-point-of-transform
+#+begin_src scheme
+(define (fixed-point-of-transform g transform guess)
+  (fixed-point (transform g) guess))
+#+end_src
+
+\[y\mapsto x/y\]
+
+#+begin_src scheme
+(define (sqrt x)
+  (fixed-point-of-transform
+   (lambda (y) (/ x y)) average-damp 1.0))
+#+end_src
+
+\[y\mapsto y^2-x\]
+
+#+begin_src scheme
+(define (sqrt x)
+  (fixed-point-of-transform
+   (lambda (y) (- (* y y) x)) newton-transform 1.0))
+#+end_src
+
+* Chapter 2. Building Abstractions with Data
+
+#+begin_quote
+We now ocme to the decisive step of mathematical abstraction: we forget about what the symbols stand for. ...[The mathematician] need not be idle; there are many operations which he may carry out with these symbols, without ever having to look at the things they stand for.
+
+--Hermann Weyl, /The Mathematical Way of Thinking/
+#+end_quote
+
+** 2.1 Introduction to Data Abstraction
+
+*** 2.1.4 Extended Exercise: Interval Arithmetic
+
+#+name: add-interval
+#+begin_src scheme
+(define (add-interval x y)
+  (make-interval (+ (lower-bound x) (lower-bound y))
+                 (+ (upper-bound x) (upper-bound y))))
+#+end_src
+
+#+name: mul-interval
+#+begin_src scheme
+(define (mul-interval x y)
+  (let ((p1 (* (lower-bound x) (lower-bound y)))
+        (p2 (* (lower-bound x) (upper-bound y)))
+        (p3 (* (upper-bound x) (lower-bound y)))
+        (p4 (* (upper-bound x) (upper-bound y))))
+    (make-interval (min p1 p2 p3 p4)
+                   (max p1 p2 p3 p4))))
+#+end_src
+
+#+name: div-interval
+#+begin_src scheme
+(define (div-interval x y)
+  (mul-interval
+   x
+   (make-interval (/ 1.0 (upper-bound y))
+                  (/ 1.0 (lower-bound y)))))
+#+end_src

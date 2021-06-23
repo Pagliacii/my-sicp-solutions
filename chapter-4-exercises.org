@@ -1,0 +1,2596 @@
+#+title:     Exercises in SICP Chapter 4
+#+author:    Jason Huang
+#+email:     huangmianrui0310@outlook.com
+#+date:      <2021-04-08 Thu>
+
+#+description:  Exercises and solutions in SICP chapter 4
+#+keywords:     sicp, exercises, solutions, lisp, scheme
+#+language:     en
+#+startup:      content
+#+exclude_tags: noexport
+
+#+LATEX_HEADER: \usepackage{minted}
+
+* Chapter 4 Metalinguistic Abstraction
+
+** Footnotes :noexport:
+
+[fn:23] Although we stipulated that ~halts?~ is given a procedure object, notice that this reasoning still applies even if ~halts?~ can gain access to the procedure's text and its environment. This is Turing's celebrated /Halting Theorem/, which gave the first clear example of a /non-computable/ problem, i.e., a well-posed task that cannot be carried out as a computational procedure.
+
+[fn:26] The =MIT= implementors of Scheme support Alyssa on the following grounds: Eva is in principle correct--the definitions should be regarded as simultaneous. But it seems difficult to implement a general, efficient mechanism that does what Eva requires. In the absence of such a mechanism, it is better to generate an error in the difficult cases of simultaneous definitions (Alyssa's notion) than to produce an incorrect answer (as Ben would have it).
+
+[fn:27] This example illustrates a programming trick for formulating recursive procedures without using ~define~. The most general trick of this sort is the /Y operator/, which can be used to give a "pure $\lambda$​-calculus" implementation of recursion. (See [[file:./references.org::Stoy 1977][Stoy 1977]] for details on the $\lambda$​-calculus, and [[file:./references.org::Gabriel 1988][Gabriel 1988]] for an exposition of the /Y/ operator in Scheme.)
+
+[fn:38] This exercise demonstrates that the interaction between lazy evaluation and side effects can be very confusing. This is just what you might expect from the discussion in Chapter 3.
+
+[fn:49] This is taken from a booklet called "Problematical Recreations", published in the 1960s by Litton Industries, where it is attributed to the /Kansas State Engineer/.
+
+[fn:53] This kind of grammar can become arbitrarily complex, but it is only a toy as far as real language understanding is concerned. Real natural-language understanding by computer requires an elaborate mixture of syntactic analysis and interpretation of meaning. On the other hand, even toy parsers can be useful in supporting flexible command languages for programs such as information-retrieval systems. [[file:./references.org::Winston 1992][Winston 1992]] discusses computational approaches to real language understanding and also the applicaitons of simple grammars to command languages.
+
+[fn:54] Although Alyssa's idea works just fine (and is surprisingly simple), the sentences that it generates are a bit boring--they don't sample the possible sentences of this language in a very interesting way. In fact, the grammar is highly recursive in many places, and Alyssa's technique "falls into" one of these recursions and gets stuck. See [[*Exercise 4.50][Exercise 4.50]] for a way to deal with this.
+
+** Exercise 4.1
+
+Notice that we cannot tell whether the metacircular evaluator evaluates operands from left to right or from right to left. Its evaluation order is inherited from the underlying Lisp: If the arguments to ~cons~ in ~list-of-values~ are evaluated from left to right, then ~list-of-values~ will evaluate operands from left to right; and if the arguments to ~cons~ are evaluated from right to left, then ~list-of-values~ will evaluate operands from right to left.
+
+Write a version of ~list-of-values~ that evaluates operands from left to right regardless of the order of evaluation in the underlying Lisp. Also write a version of ~list-of-values~ that evaluates operands from right to left.
+
+*** Solution
+
+#+name: ltr-list-of-values-procedure
+#+begin_src scheme
+(define (list-of-values exps env)
+  (if (no-operands? exps)
+      '()
+      (let* ((left (eval (first-operand exps) env))
+             (right (list-of-values (rest-operands exps) env)))
+        (cons left right))))
+#+end_src
+
+#+name: rtl-list-of-values-procedure
+#+begin_src scheme
+(define (list-of-values exps env)
+  (if (no-operands? exps)
+      '()
+      (let* ((right (list-of-values (rest-operands exps) env))
+             (left (eval (first-operand exps) env)))
+        (cons left right))))
+#+end_src
+
+** Exercise 4.2
+
+Louis Reasoner plans to reorder the ~cond~ clauses in ~eval~ so that the clause for procedure applications appears before the clause for assignments. He argues that this will make the interpreter more efficient: Since programs usually contain more applications than assignments, definitions, and so on, his modified ~eval~ will usually check fewer clauses than the original ~eval~ before identifying the type of an expression.
+
+a. What is wrong with Louis's plan? (Hint: What will Louis's evaluator do with the expression ~(define x 3)~?)
+b. Louis is upset that his plan didn't work. He is willing to go to any lengths to make his evaluator recognize procedure applications before it checks for most other kinds of expressions. Help him by changing the syntax of the evaluated language so that procedure applications start with ~call~. For example, instead of ~(factorial 3)~ we will now have to write ~(call factorial 3)~ and instead of ~(+ 1 2)~ we will have to write ~(call + 1 2)~.
+
+*** Solution
+
+**** Part a
+
+It will always apply the applications clause, so that other clauses after will not be applied.
+
+**** Part b
+
+#+begin_src scheme
+(define (applicaiton? exp) (tagged-list? exp 'call))
+(define (operator exp) (cadr exp))
+(define (operands exp) (cddr exp))
+#+end_src
+
+** Exercise 4.3
+
+Rewrite ~eval~ so that the dispatch is done in data-directed style. Compare this with the data-directed differentiation procedure of [[file:./chapter-2-exercises.org::*Exercise 2.73][Exercise 2.73]]. (You may use the ~car~ of a compound expression as the type of the expression, as is appropriate for the syntax implemented in this section.)
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.3][sicp-ex-4.3]]
+- [[https://wizardbook.wordpress.com/2010/12/25/exercise-4-3/][Exercise 4.3]]
+
+** Exercise 4.4
+
+Recall the definitions of the special forms ~and~ and ~or~ from Chapter 1:
+
++ ~and~: The expressions are evaluated from left to right. If any expression evaluates to false, false is returned; any remaining expressions are not evaluated. If all the expressions evaluate to true values, the value of the last expression is returned. If there are no expressions then true is returned.
++ ~or~: The expressions are evaluated from left to right. If any expression evaluates to a true value, that value is returned; any remaining expressions are not evaluated. If all expressions evaluate to false, or if there are no expressions, then false is returned.
+
+Install ~and~ and ~or~ as new special forms for the evaluator by defining appropriate syntax procedures and evaluation procedures ~eval-and~ and ~eval-or~. Alternatively, show how to implement ~and~ and ~or~ as derived expressions.
+
+*** Solution
+
+#+begin_src scheme
+; special forms
+(define first-pred car)
+(define rest-preds cdr)
+(define (last-pred? preds) (null? (rest-preds preds)))
+(define no-pred? null?)
+(define and-predicates cdr)
+(define or-predicates cdr)
+(define (eval-and exps env)
+  (cond ((no-pred? exps) 'true)
+        ((last-pred? exps) (eval (first-pred exps) env))
+        ((eval (first-pred exps) env)
+         (eval-and (rest-preds exps) env))
+        (else 'false)))
+(define (eval-or exps env)
+  (cond ((no-pred? exps) 'false)
+        ((last-pred? exps) 'false)
+        ((eval (first-pred exps) env) 'true)
+        (else (eval-or (rest-preds exps) env))))
+(define (and? exp) (tagged-list? exp 'and))
+(define (or? exp) (tagged-list? exp 'or))
+
+; derived expressions
+(define (and->if exp)
+  (expand-and-predicates (and-predicates exp)))
+(define (expand-and-predicates preds)
+  (if (no-pred? preds)
+      'true
+      (make-if (first-pred preds)
+               (expand-and-predicates (rest-preds preds))
+               'false)))
+(define (or->if exp)
+  (expand-or-predicates (or-predicates exp)))
+(define (expand-or-predicates preds)
+  (if (no-pred? preds)
+      'false
+      (make-if (first-pred preds)
+               'true
+               (expand-or-predicates (rest-preds preds)))))
+#+end_src
+
+** Exercise 4.5
+
+Scheme allows an additional syntax for ~cond~ clauses, ($\langle test\rangle => \langle recipient\rangle$). If $\langle test\rangle$ evaluates to a true value, then $\langle recipient\rangle$ is evaluated. Its value must be a procedure of one argument; this procedure is then invoked on the value of the $\langle test\rangle$, and the result is returned as the value of the ~cond~ expression. For example
+
+#+begin_src scheme
+(cond ((assoc 'b '((a 1) (b 2))) => cadr)
+      (else false))
+#+end_src
+
+returns 2. Modify the handling of ~cond~ so that it supports this extended syntax.
+
+*** Solution
+
+#+begin_src scheme
+(define (cond-recipient clause) (caddr clause))
+(define (cond-recipient-clause? clause) (eq? (cadr clause) '=>))
+(define (make-cond-recipient clause predicate)
+  (list (cond-recipient clause) predicate))
+(define (cond-consequent clause predicate)
+  (if (cond-recipient-clause? clause)
+      (make-cond-recipient clause predicate)
+      (sequence->exp (cond-actions clause))))
+(define (expand-clauses clauses)
+  (if (null? clauses)
+      'false
+      (let ((first (car clauses))
+            (rest (cdr clauses)))
+        (if (cond-else-clause? first)
+            (if (null? rest)
+                (sequence->exp (cond-actions first))
+                (error "ELSE clause isn't last: COND->IF"
+                       clauses))
+            (make-if (cond-predicate first)
+                     (cond-consequent first (cond-predicate first))
+                     (expand-clauses rest))))))
+#+end_src
+
+** Exercise 4.6
+
+~let~ expressions are derived expressions, because
+
+#+begin_src scheme
+(let ((<var_1> <exp_1>) ... (<var_n> <exp_n>))
+  <body>)
+#+end_src
+
+is equivalent to
+
+#+begin_src scheme
+((lambda (<var_1> ... <var_n>)
+   <body>)
+ <exp_1>
+ ...
+ <exp_n>)
+#+end_src
+
+Implement a syntactic transformation ~let->combination~ that reduces evaluating ~let~ expressions to evaluating combinations of the type shown above, and add the appropriate clause to ~eval~ to handle ~let~ expressions.
+
+*** Solution
+
+#+begin_src scheme
+(define (let? exp) (tagged-list? exp 'let))
+(define (let-vars exp) (map car (cadr exp)))
+(define (let-inits exp) (map cadr (cadr exp)))
+(define (let-body exp) (cddr exp))
+(define (let->combination exp)
+  (cons (make-lambda (let-vars exp) (let-body exp))
+        (let-inits exp)))
+#+end_src
+
+** Exercise 4.7
+
+~let*~ is similar to ~let~, except that the bindings of the ~let*~ variables are performed sequentially from left to right, and each binding is made in an environment in which all of the preceding bindings are visible. For example
+
+#+begin_src scheme
+(let* ((x 3) (y (+ x 2)) (z (+ x y 5)))
+  (* x z))
+#+end_src
+
+return 39. Explain how a ~let*~ expression can be rewritten as a set of nested ~let~ expressions, and write a procedure ~let*->nested-lets~ that performs this transformation. If we have already implemented ~let~ ([[*Exercise 4.6][Exercise 4.6]]) and we want to extend the evaluator to handle ~let*~, is it sufficient to add a clause to ~eval~ whose action is
+
+#+begin_src scheme
+(eval (let*->nested-lets exp) env)
+#+end_src
+
+or must we explicitly expand ~let*~ in terms of non-derived expressions?
+
+*** Solution
+
+#+begin_src scheme
+(let* ((x 3) (y (+ x 2)) (z (+ x y 5)))
+  (* x z)) ; =>
+(let ((x 3))
+  (let ((y (+ x 2)))
+    (let ((z (+ x y 5)))
+      (* x z))))
+#+end_src
+
+#+begin_src scheme
+(define (make-let vars body)
+  (list 'let vars body))
+(define (let*? exp) (tagged-list? exp 'let*))
+(define (let*->nested-lets exp)
+  (let ((vars (cadr exp))
+        (body (caddr exp)))
+    (if (null? vars)
+        body
+        (make-let (list (car vars))
+                  (make-let (cdr vars) body)))))
+#+end_src
+
+** Exercise 4.8
+
+"Named ~let~" is a variant of ~let~ that has the form
+
+#+begin_src scheme
+(let <var> <bindings> <body>)
+#+end_src
+
+The $\langle bindings\rangle$ and $\langle body\rangle$ are just as in ordinary ~let~, except that $\langle var\rangle$ is bound within $\langle body\rangle$ to a procedure whose body is $\langle body\rangle$ and whose parameters are the variables in the $\langle bindings\rangle$. Thus, one can repeatedly execute the $\langle body\rangle$ by invoking the procedure named $\langle body\rangle$ by invoking the procedure named $\langle var\rangle$. For example, the iterative Fibonacci procedure (Section 1.2.2) can be rewritten using named ~let~ as follows:
+
+#+begin_src scheme
+(define (fib n)
+  (let fib-iter ((a 1)
+                   (b 0)
+                   (count n))
+    (if (= count 0)
+        b
+        (fib-iter (+ a b) a (- count 1)))))
+#+end_src
+
+Modify ~let->combination~ of [[*Exercise 4.6][Exercise 4.6]] to also support named ~let~.
+
+*** Solution
+
+#+begin_src scheme
+(define (named-let? exp) (and (let? exp) (symbol? (named-let-var exp))))
+(define (named-let-var exp) (cadr exp))
+(define (named-let-bindings exp) (caddr exp))
+(define (named-let-parameters exp) (map car (named-let-bindings exp)))
+(define (named-let-initials exp) (map cadr (named-let-bindings exp)))
+(define (named-let-body exp) (cadddr exp))
+(define (named-let->func exp)
+  (list 'define
+        (append (named-let-var exp) (named-let-parameters exp))
+        (named-let-body exp)))
+(define (let->combination exp)
+  (if (named-let? exp)
+      (sequence->list
+       (list (named-let->func exp)
+             (cons (named-let-var exp) (named-let-initials exp))))
+      (list (make-lambda (let-vars exp) (let-body exp))
+        (let-inits exp))))
+#+end_src
+
+** Exercise 4.9
+
+Many languages support a variety of iteration constructs, such as ~do~, ~for~, ~while~, and ~until~. In Scheme, iterative processes can be expressed in terms of ordinary procedure calls, so special iteration constructs provide no essential gain in computational power. On the other hand, such constructs are often convenient. Design some iteration constructs, give examples of their use, and show how to implement them as derived expressions.
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.9][sicp-ex-4.9]]
+- [[https://wizardbook.wordpress.com/2010/12/16/exercise-4-9/][Exercise 4.9]]
+
+** Exercise 4.10
+
+By using data abstraction, we were able to write an ~eval~ procedure that is independent of the particular syntax of the language to be evaluated. To illustrate this, design and implement a new syntax for Scheme by modifying the procedures in this section, without changing ~eval~ or ~apply~.
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.10][sicp-ex-4.10]]
+- [[https://wizardbook.wordpress.com/2010/12/27/exercise-4-10/][Exercise 4.10]]
+
+** Exercise 4.11
+
+Instead of representing a frame as a pair of lists, we can represent a frame as a list of bindings, where each binding is a name-value pair. Rewrite the environment operations to use this alternative representation.
+
+*** Solution
+
+#+begin_src scheme
+(define (make-binding variable value)
+  (cons variable value))
+(define (binding-variable binding)
+  (car binding))
+(define (binding-value binding)
+  (cdr binding))
+(define (make-frame variables values)
+  (map cons variables values))
+(define (frame-varialbes frame) (map binding-variable frame))
+(define (frame-values frame) (map binding-value frame))
+(define (add-binding-to-frame! var val frame)
+  (cons (make-binding var val) frame))
+(define (lookup-variable-value var env)
+  (define (env-loop env)
+    (if (eq? env the-empty-environment)
+        (error "Unbound variable: SET!" var)
+        (let ((found (assoc var (first-frame env))))
+          (if found
+              (binding-value found)
+              (env-loop (enclosing-environment env))))))
+  (env-loop env))
+(define (set-variable-value! var val env)
+  (define (env-loop env)
+    (if (eq? env the-empty-environment)
+        (error "Unbound variable: SET!" var)
+        (let ((found (assoc var (first-frame env))))
+          (if found
+              (set-cdr! found val)
+              (env-loop (enclosing-environment env))))))
+  (env-loop env))
+(define (define-variable! var val env)
+  (let ((found (assoc var (first-frame env))))
+    (if found
+        (set-cdr! found val)
+        (add-binding-to-frame! var val frame))))
+#+end_src
+
+** Exercise 4.12
+
+The procedures ~set-variable-value!~, ~define-variable!~ and ~lookup-variable-value~ can be expressed in terms of more abstract procedures for traversing the environment structure. Define abstractions that capture the common patterns and redefine the three procedures in terms of these abstractions.
+
+*** Solution
+
+#+begin_src scheme
+(define (tranverse var env on-find on-frame-end on-env-end)
+  (define (env-loop env)
+    (define (scan vars vals)
+      (cond ((null? vars) (on-frame-end env))
+            ((eq? var (car vars)) (on-find vals))
+            (else (scan (cdr vars) (cdr vals)))))
+    (if (eq? env the-empty-environment)
+        (on-env-end)
+        (let ((frame (first-frame env)))
+          (scan (frame-variables frame)
+                (frame-values frame)))))
+  (env-loop env))
+(define (lookup-variable-value var env)
+  (tranverse var
+             env
+             (lambda (vals) (car vals))
+             (lambda (env) (lookup-variable-value var (enclosing-environment env)))
+             (lambda () (error "Unbound varialbe: LOOKUP" var))))
+(define (set-variable-value! var val env)
+  (tranverse var
+             env
+             (lambda (vals) (set-car! vals val))
+             (lambda (env) (set-variables-value! var val (enclosing-environment env)))
+             (lambda () (error "Unbound variable: SET!" var))))
+(define (define-variable! var val env)
+  (tranverse var
+             env
+             (lambda (vals) (set-car! vals val))
+             (lambda (env) (add-binding-to-frame! var val (first-frame env)))
+             (lambda () (error "Empty environment: DEFINE!" var))))
+#+end_src
+
+** Exercise 4.13
+
+Scheme allows us to create new bindings for variables by means of ~define~, but provides no way to get rid of bindings. Implement for the evaluator a special form ~make-unbound!~ that removes the binding of a given symbol from the environment in which the ~make-unbound!~ expression is evaluated. This problem is not completely specified. For example, should we remove only the binding in the first frame of the environment? Complete the specification and justify any choices you make.
+
+*** Solution
+
+#+begin_src scheme
+(define (make-unbound! var env)
+  (define (env-loop env)
+    (define (scan vars vals)
+      (cond ((null? vars) (env-loop (enclosing-environment env)))
+            ((eq? var (car vars))
+             (begin (set-car! vars '())
+                    (set-car! vals '())
+                    (env-loop (enclosing-environment env))))
+            (else (scan (cdr vars) (cdr vals)))))
+    (if (eq? env the-empty-environment)
+        'done
+        (let ((frame (first-frame env)))
+          (scan (frame-variables frame)
+                (frame-values frame)))))
+  (env-loop env))
+#+end_src
+
+** Exercise 4.14
+
+Eva Lu Ator and Louis Reasoner are each experimenting with the metacircular evaluator. Eva types in the definition of ~map~, and runs some test programs that use it. They work fine. Louis, in contrast, has installed the system version of ~map~ as a primitive for the metacircular evaluator. When he tries it, things go terribly wrong. Explain why Louis's ~map~ fails even though Eva's works.
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.14][sicp-ex-4.14]]
+- [[https://wizardbook.wordpress.com/2010/12/29/exercise-4.14][Exercise 4.14]]
+
+** Exercise 4.15
+
+Given a one-argument procedure ~p~ and an object ~a~, ~p~ is said to "halt" on ~a~ if evaluating the expression ~(p a)~ returns a value (as opposed to terminating with an error message or running forever). Show that it is impossible to write a procedure ~halts?~ that correctly determines whether ~p~ halts on ~a~ for any procedure ~p~ and object ~a~. Use the following reasoning: If you had such a procedure ~halts?~, you could implement the following program:
+
+#+begin_src scheme
+(define (run-forever) (run-forever))
+(define (try p)
+  (if (halts? p p) (run-forever) 'halted))
+#+end_src
+
+Now consider evaluating the expression ~(try try)~ and show that any possible outcome (either halting or running forever) violates the intended behavior of ~halts?~.[fn:23]
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.15][sicp-ex-4.15]]
+- [[https://wizardbook.wordpress.com/2010/12/29/exercise-4-15/][Exercise 4.15]]
+
+** Exercise 4.16
+
+In this exercise we implement the method just described for interpreting internal definitions. We assume that the evaluator supports ~let~ (see [[*Exercise 4.6][Exercise 4.6]]).
+
+a. Change ~lookup-variable-value~ (Section 4.1.3) to signal an error if the value it finds is the symbol ~*unassigned*~.
+b. Write a procedure ~scan-out-defines~ that takes a procedure body and returns an equivalent one that has no internal definitions, by making the transformation described above.
+c. Install ~scan-out-defines~ in the interpreter, either in ~make-procedure~ or in ~procedure-body~ (see Section 4.1.3). Which place is better? Why?
+
+*** Solution
+
+**** Part a
+
+#+begin_src scheme
+(define (lookup-variable-value var env)
+  (define (env-loop env)
+    (define (scan vars vals)
+      (cond ((null? vars)
+             (env-loop (enclosing-environment env)))
+            ((eq? var (car vars))
+             (if (eq? (car vals) '*unassigned*)
+                 (error "Unassigned variable" var)
+                 (car vals)))
+            (else (scan (cdr vars) (cdr vals)))))
+    (if (eq? env the-empty-environment)
+        (error "Unbound variable" var)
+        (let ((frame (first-frame env)))
+          (scan (frame-variables frame)
+                (frame-values frame)))))
+  (env-loop env))
+#+end_src
+
+**** Part b
+
+#+begin_src scheme
+(define (make-let bindings body)
+  (cons 'let (cons bindings body)))
+(define (make-assignment var exp)
+  (list 'set! var exp))
+(define (scan-out-defines body)
+  (define (collect seq defs exps)
+    (if (null? seq)
+        (cons defs exps)
+        (if (definition? (car seq))
+            (collect (cdr seq) (cons (car seq) defs) exps)
+            (collect (cdr seq) defs (cons (car seq) exps)))))
+  (let ((pair (collect body '() '())))
+    (let ((defs (car pair))
+          (exps (cdr pair)))
+      (make-let (map (lambda (def)
+                       (list (definition-variable def) '*unassigned*))
+                     defs)
+                (append
+                 (map (lambda (def)
+                        (make-assignment (definition-variable def)
+                                         (definition-value def)))
+                      defs)
+                 exps)))))
+#+end_src
+
+**** Part c
+
+~make-procedure~ is better because we can easily explore other transformations along with the fact of repeated calculation everytime when ~procedure-body~ is accessed.
+
+#+begin_src scheme
+(define (make-procedure parameters body env)
+  (list 'procedure parameters (scan-out-defines body) env))
+#+end_src
+
+** Exercise 4.17
+
+Draw diagrams of the environment in effect when evaluating the expression $\langle e3\rangle$ in the procedure in the text, comparing how this will be structured when definitions are interpreted sequentially with how it will be structured if definitions are scanned out as described. Why is there an extra frame in the transformed program? Explain why this difference in environment structure can never make a difference in the behavior of a correct program. Design a way to make the interpreter implement the "simultaneous" scope rule for internal definitions without constructing the extra frame.
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.17][sicp-ex-4.17]]
+- [[https://wizardbook.wordpress.com/2011/01/03/exercise-4-17/][Exercise 4.17]]
+
+** Exercise 4.18
+
+Consider an alternative strategy for scanning out definitions that translates the example in the text to
+
+#+begin_src scheme
+(lambda <vars>
+  (let ((u '*unassigned*) (v '*unassigned*))
+    (let ((a <e1>) (b <e2>))
+      (set! u a)
+      (set! v b))
+    <e3>))
+#+end_src
+
+Here ~a~ and ~b~ are meant to represent new variable names, created by the interpreter, that do not appear in the user's program. Consider the ~solve~ procedure from Section 3.5.4:
+
+#+begin_src scheme
+(define (solve f y0 dt)
+  (define  y (integral (delay dy) y0 dt))
+  (define dy (stream-map f y))
+  y)
+#+end_src
+
+Will this procedure work if internal definitions are scanned out as shown in this exercise? What if they are scanned out as shown in the text? Explain.
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.18][sicp-ex-4.18]]
+- [[https://wizardbook.wordpress.com/2011/01/03/exercise-4-18/][Exercise 4.18]]
+
+** Exercise 4.19
+
+Ben Bitdiddle, Alyssa P. Hacker, and Eva Lu Ator are arguing about the desired result of evaluating the expression
+
+#+begin_src scheme
+(let ((a 1))
+  (define (f x)
+    (define b (+ a x))
+    (define a 5)
+    (+ a b))
+  (f 10))
+#+end_src
+
+Ben asserts that the result should be obtained using the sequential rule for ~define~: ~b~ is defined to be 11, then ~a~ is defined to be 5, so the result is 16. Alyssa objects that mutual recursion requires the simultaneous scope rule for internal procedure definitions, and that it is unreasonable to treat procedure names differently from other names. Thus, she argues for the mechanism implemented in [[*Exercise 4.16][Exercise 4.16]]. This would lead to ~a~ being unassigned at the time that the value for ~b~ is to be computed. Hence, in Alyssa's view the procedure should produce an error. Eva has a third opinion. She says that if the definitions of ~a~ and ~b~ are truly meant to be simultaneous, then the value 5 for ~a~ should be used in evaluating ~b~. Hence, in Eva's view ~a~ should be 5, ~b~ should be 15, and the result should be 20. Which (if any) of these view-points do you support? Can you devise a way to implement internal definitions so that they behave as Eva prefers?[fn:26]
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.19][sicp-ex-4.19]]
+- [[https://wizardbook.wordpress.com/2011/01/04/exercise-4-19/][Exercise 4.19]]
+
+** Exercise 4.20
+
+Because internal definitions look sequential but are actually simultaneous, some people prefer to avoid them entirely, and use the special form ~letrec~ instead. ~letrec~ looks like ~let~, so it is not surprising that the variables it binds are bound simultaneously and have the same scope as each other. The sample procedure ~f~ above can be written without internal definitions, but with exactly the same meaning, as
+
+#+begin_src scheme
+(define (f x)
+  (letrec
+      ((even? (lambda (n)
+                (if (= n 0) true  (odd?  (- n 1)))))
+       (odd?  (lambda (n)
+                (if (= n 0) false (even? (- n 1))))))
+    <rest of body of f>))
+#+end_src
+
+~letrec~ expressions, which have the form
+
+#+begin_src scheme
+(letrec ((<var_1> <exp_1>) ... (<var_n> <exp_n>))
+  <body>)
+#+end_src
+
+are a variation on ~let~ in which the expressions $\langle exp_k\rangle$ that provide the initial values for the variables $\langle var_k\rangle$ are evaluated in an environment that includes all the ~letrec~ bindings. This permits recursion in the bindings, such as the mutual recursion of ~even?~ and ~odd?~ in the example above, or the evaluation of 10 factorial with
+
+#+begin_src scheme
+(letrec
+    ((fact (lambda (n)
+             (if (= n 1) 1 (* n (fact (- n 1)))))))
+  (fact 10))
+#+end_src
+
+a. Implement ~letrec~ as a derived expression, by transforming a ~letrec~ expression into a ~let~ expression as shown in the text above or in [[*Exercise 4.18][Exercise 4.18]]. That is, the ~letrec~ variables should be created with a ~let~ and then be assigned their values with ~set!~.
+b. Louis Reasoner is confused by all this fuss about internal definitions. The way he sees it, if you don't like to use ~define~ inside a procedure, you can just use ~let~. Illustrate what is loose about his reasoning by drawing an environment diagram that shows the environment in which the $\langle\textit{rest of body of } \texttt{\textit{f}}\rangle$ is evaluated during evaluation of the expression ~(f 5)~, with ~f~ defined as in this exercise. Draw an environment diagram for the same evaluation, but with ~let~ in place of ~letrec~ in the definition of ~f~.
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.20][sicp-ex-4.20]]
+- [[https://wizardbook.wordpress.com/2011/01/04/exercise-4-20/][Exercise 4.20]]
+
+** Exercise 4.21
+
+Amazingly, Louis's intuition in [[*Exercise 4.20][Exercise 4.20]] is correct. It is indeed possible to specify recursive procedures without using ~letrec~ (or even ~define~), although the method for accomplishing this is much more subtle than Louis imagined. The following expression computes 10 factorial by applying a recursive factorial procedure:[fn:27]
+
+#+begin_src scheme
+(lambda (n)
+  ((lambda (fact) (fact fact n))
+   (lambda (ft k) (if (= k 1) 1 (* k (ft ft (- k 1))))))
+  10)
+#+end_src
+
+a. Check (by evaluating the expression) that this really does compute factorials. Devise an analogous expression for computing Fibonacci numbers.
+b. Consider the following procedure, which includes mutually recursive internal definitions:
+
+   #+begin_src scheme
+(define (f x)
+  (define (even? n)
+    (if (= n 0) true  (odd?  (- n 1))))
+  (define (odd? n)
+    (if (= n 0) false (even? (- n 1))))
+  (even? x))
+   #+end_src
+
+   Fill in the missing expressions to complete an alternative definition of ~f~, which uses neither internal definitions nor ~letrec~:
+
+   #+begin_src scheme
+(define (f x)
+  ((lambda (even? odd?) (even? even? odd? x))
+   (lambda (ev? od? n)
+     (if (= n 0) true (od? <??> <??> <??>)))
+   (lambda (ev? od? n)
+     (if (= n 0) false (ev? <??> <??> <??>)))))
+   #+end_src
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.21][sicp-ex-4.21]]
+- [[https://wizardbook.wordpress.com/2011/01/04/exercise-4-21/][Exercise 4.21]]
+
+** Exercise 4.22
+
+Extend the evaluator in this section to support the special form ~let~. (See [[*Exercise 4.6][Exercise 4.6]].)
+
+*** Solution
+
+#+begin_src scheme
+(define (analyze exp)
+  (cond ((self-evaluating? exp) (analyze-self-evaluating exp))
+        ((quoted? exp)          (analyze-quoted exp))
+        ((variable? exp)        (analyze-variable exp))
+        ((assignment? exp)      (analyze-assignment exp))
+        ((definition? exp)      (analyze-definition exp))
+        ((if? exp)              (analyze-if exp))
+        ((lambda? exp)          (analyze-lambda exp))
+        ((begin? exp)           (analyze-sequence (begin-actions exp)))
+        ((cond? exp)            (analyze (cond->if exp)))
+        ((let? exp)             (analyze (let->combination exp)))
+        ((application? exp)     (analyze-application exp))
+        (else (error "Unknown expression type: ANALYZE" exp))))
+#+end_src
+
+** Exercise 4.23
+
+Alyssa P. Hacker doesn't understand why ~analyze-sequence~ needs to be so complicated. All the other analysis procedures are straightforward transformations of the corresponding evaluation procedures (or ~eval~ clauses) in Section 4.1.1. She expected ~analyze-sequence~ to look like this:
+
+#+begin_src scheme
+(define (analyze-sequence exps)
+  (define (execute-sequence procs env)
+    (cond ((null? (cdr procs))
+           ((car procs) env))
+          (else
+           ((car procs) env)
+           (execute-sequence (cdr procs) env))))
+  (let ((procs (map analyze exps)))
+    (if (null? procs)
+        (error "Empty sequence: ANALYZE"))
+    (lambda (env)
+      (execute-sequence procs env))))
+#+end_src
+
+Eva Lu Ator explains to Alyssa that the version in the text does more of the work of evaluating a sequence at analysis time. Alyssa's sequence-execution procedure, rather than having the calls to the individual execution procedures built in, loops through the procedures in order to call them: In effect, although the individual expressions in the sequence have been analyzed, the sequence itself has not been.
+
+Compare the two versions of ~analyze-sequence~. For example, consider the common case (typical of procedure bodies) where the sequence has just one expression. What work will the execution procedure produced by Alyssa's program do? What about the execution procedure produced by the program in the text above? How do the two versions compare for a sequence with two expressions?
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.23][sicp-ex-4.23]]
+- [[https://wizardbook.wordpress.com/2011/01/04/exercise-4-23/][Exercise 4.23]]
+
+** Exercise 4.24
+
+Design and carry out some experiments to compare the speed of the original metacircular evaluator with the version in this section. Use your results to estimate the fraction of time that is spent in analysis versus execution for various procedures.
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.24][sicp-ex-4.24]]
+- [[https://wizardbook.wordpress.com/2011/01/04/exercise-4-24/][Exercise 4.24]]
+
+** Exercise 4.25
+
+Suppose that (in ordinary applicative-order Scheme) we define ~unless~ as shown above and then define ~factorial~ in terms of ~unless~ as
+
+#+begin_src scheme
+(define (factorial n)
+  (unless (= n 1)
+          (* n (factorial (- n 1)))
+          1))
+#+end_src
+
+What happens if we attempt to evaluate ~(factorial 5)~? Will our definitions work in a normal-order language?
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.25][sicp-ex-4.25]]
+- [[https://wizardbook.wordpress.com/2011/01/05/exercise-4-25][Exercise 4.25]]
+
+** Exercise 4.26
+
+Ben Bitdiddle and Alyssa P. Hacker disagree over the importance of lazy evaluation for implementing things such as ~unless~. Ben points out that it's possible to implement ~unless~ in applicative order as a special form. Alyssa counters that, if one did that, ~unless~ would be merely syntax, not a procedure that could be used in conjunction with higher-order procedures. Fill in the details on both sides of the argument. Show how to implement ~unless~ as a derived expression (like ~cond~ or ~let~), and give an example of a situation where it might be useful to have ~unless~ available as a procedure, rather than as a special form.
+
+*** Solution
+
+#+begin_src scheme
+(define (unless? exp) (tagged-list? exp 'unless))
+(define (unless->if exp)
+  (make-if (unless-conditional exp)
+           (unless-exceptional exp)
+           (unless-usual exp)))
+(define (unless-conditional exp) (cadr exp))
+(define (unless-usual exp) (caddr exp))
+(define (unless-exceptional exp)
+  (if (null? (cdddr exp))
+      'false
+      (cadddr exp)))
+; append this clause to analyze procedure
+((unless? exp) (analyze (unless->if exp)))
+#+end_src
+
+** Exercise 4.27
+
+Suppose we type in the following definitions to the lazy evaluator:
+
+#+begin_src scheme
+(define count 0)
+(define (id x) (set! count (+ count 1)) x)
+#+end_src
+
+Give the missing values in the following sequence of interactions, and explain your answers.[fn:38]
+
+#+begin_src scheme
+(define w (id (id 10)))
+;;; L-Eval input:
+count
+;;; L-Eval value:
+<response>
+;;; L-Eval input:
+w
+;;; L-Eval value:
+<response>
+;;; L-Eval input:
+count
+;;; L-Eval value:
+<response>
+#+end_src
+
+*** Solution
+
+#+begin_src scheme
+;;; L-Eval input:
+count
+;;; L-Eval value:
+1
+;;; L-Eval input:
+w
+;;; L-Eval value:
+10
+;;; L-Eval input:
+count
+;;; L-Eval value:
+2
+#+end_src
+
+While execute ~(define w (id (id 10)))~, the evaluator needs to the actual value of ~(id 10)~. So the value of ~count~ will be 1. But the value of ~w~ will be delayed to express. If we check the value of ~w~, the evaluator will force calculate the value of ~(id (id 10))~. After all, the value of ~count~ will be 2.
+
+- [[http://community.schemewiki.org/?sicp-ex-4.27][sicp-ex-4.27]]
+- [[https://wizardbook.wordpress.com/2011/01/05/exercise-4-27/][Exercise 4.27]]
+
+** Exercise 4.28
+
+~eval~ uses ~actual-value~ rather than ~eval~ to evaluate the operator before passing it to ~apply~, in order to force the value of the operator. Give an example that demonstrates the need for this forcing.
+
+*** Solution
+
+#+begin_src scheme
+; for example
+(define (g x) (+ x 1))
+(define (f g x) (g x))
+#+end_src
+
+- [[http://community.schemewiki.org/?sicp-ex-4.28][sicp-ex-4.28]]
+- [[https://wizardbook.wordpress.com/2011/01/05/exercise-4-28/][Exercise 4.28]]
+
+** Exercise 4.29
+
+Exhibit a program that you would expect to run much more slowly without memoization than with memoization. Also, consider the following interaction, where the ~id~ procedure is defined as in [[*Exercise 4.27][Exercise 4.27]] and ~count~ starts at 0:
+
+#+begin_src scheme
+(define (square x) (* x x))
+;;; L-Eval input:
+(square (id 10))
+;;; L-Eval value:
+<response>
+;;; L-Eval input:
+count
+;;; L-Eval value:
+<response>
+#+end_src
+
+Give the responses both when the evaluator memoizes and when it does not.
+
+*** Solution
+
+#+begin_src scheme
+; with memoization
+;;; L-Eval input:
+(square (id 10))
+;;; L-Eval value:
+100
+;;; L-Eval input:
+count
+;;; L-Eval value:
+1
+
+; without memoization
+;;; L-Eval input:
+(square (id 10))
+;;; L-Eval value:
+100
+;;; L-Eval input:
+count
+;;; L-Eval value:
+2
+#+end_src
+
+** Exercise 4.30
+
+Cy D. Fect, a reformed C programmer, is worried that some side effects may never take place, because the lazy evaluator doesn't force the expressions in a sequence. Since the value of an expression in a sequence other than the last one is not used (the expression is there only for its effect, such as assigning to a variable or printing), there can be no subsequent use of this value (e.g., as an argument to a primitive procedure) that will cause it to be forced. Cy thus thinks that when evaluating sequences, we must force all expressions in the sequence except the final one. He proposes to modify ~eval-sequence~ from Section 4.1.1 to use ~actual-value~ rather than ~eval~:
+
+#+begin_src scheme
+(define (eval-sequence exps env)
+  (cond ((last-exp? exps) (eval (first-exp exps) env))
+        (else (actual-value (frist-exp exps) env)
+              (eval-sequence (rest-exps exps) env))))
+#+end_src
+
+a. Ben Bitdiddle thinks Cy is wrong. He shows Cy the ~for-each~ procedure described in [[file:./chapter-2-exercises.org::*Exercise 2.23][Exercise 2.23]], which gives an important example of a sequence with side effects:
+
+   #+begin_src scheme
+(define (for-each proc items)
+  (if (null? items)
+      'done
+      (begin (proc (car items)
+                   (for-each proc (cdr items))))))
+   #+end_src
+
+   He claims that the evaluator in the text (with the original ~eval-sequence~) handles this correctly:
+
+   #+begin_src scheme
+;;; L-Eval input:
+(for-each (lambda (x) (newline) (display x))
+          (list 57 321 88))
+57
+321
+88
+;;; L-Eval value:
+done
+   #+end_src
+
+   Explain why Ben is right about the behavior of ~for-each~.
+
+b. Cy agrees that Ben is right about the ~for-each~ example, but says that that's not the kind of program he was thinking about when he proposed his change to ~eval-sequence~. He defines the following two procedures in the lazy evaluator:
+
+   #+begin_src scheme
+(define (p1 x)
+  (set! x (cons x '(2)))
+  x)
+(define (p2 x)
+  (define (p e)
+    e
+    x)
+  (p (set! x (cons x '(2)))))
+   #+end_src
+
+   What are the values of ~(p1 1)~ and ~(p2 1)~ with the original ~eval-sequence~? What would the values be with Cy's proposed change to ~eval-sequence~?
+
+c. Cy also points out that changing ~eval-sequence~ as he proposes does not affect the behavior of the example in part a. Explain why this is true.
+
+d. How do you think sequences ought to be treated in the lazy evaluator? Do you like Cy's approach, the approach in the text, or some other approach?
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.30][sicp-ex-4.30]]
+- [[https://wizardbook.wordpress.com/2011/01/06/exercise-4-30/][Exercise 4.30]]
+
+** Exercise 4.31
+
+The approach taken in this section is somewhat unpleasant, because it makes an incompatible change to Scheme. It might be nicer to implement lazy evaluation as an /upward-compatible extension/, that is, so that ordinary Scheme programs will work as before. We can do this by extending the syntax of procedure declarations to let the user control whether or not arguments are to be delayed. While we're at it, we may as well also give the user the choice between delaying with and without memoization. For example, the definition
+
+#+begin_src scheme
+(define (f a (b lazy) c (d lazy-memo))
+  ...)
+#+end_src
+
+would define ~f~ to be a procedure of four arguments, where the first and third arguments are evaluated when the procedure is called, the second argument is delayed, and the fourth argument is both delayed and memoized. Thus, ordinary procedure definitions will produce the same behavior as ordinary Scheme, while adding the ~lazy-memo~ declaration to each parameter of every compound procedure will produce the behavior of the lazy evaluator defined in this section. Design and implement the changes required to produce such an extension to Scheme. You will have to implement new syntax procedures to handle the new syntax for ~define~. You must also arrange for ~eval~ or ~apply~ to determine when arguments are to be delayed, and to force or delay arguments accordingly, and you must arrange for forcing to momoize or not, as appropriate.
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.31][sicp-ex-4.31]]
+- [[https://wizardbook.wordpress.com/2011/01/06/exercise-4-31/][Exercise 4.31]]
+
+** Exercise 4.32
+
+Give some examples that illustrate the difference between the streams of Chapter 3 and the "lazier" lazy lists described in this section. How can you take advantage of this extra laziness?
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.32][sicp-ex-4.32]]
+- [[https://wizardbook.wordpress.com/2011/01/07/exercise-4-32/][Exercise 4.32]]
+
+** Exercise 4.33
+
+Ben Bitdiddle tests the lazy list implementation given above by evaluating the expression:
+
+#+begin_src scheme
+(car '(a b c))
+#+end_src
+
+To his surprise, this produces an error. After some thought, he realizes that the "lists" obtained by reading in quoted expressions are different from the lists manipulated by the new definitions of ~cons~, ~car~, and ~cdr~. Modify the evaluator's treatment of quoted expressions so that quoted lists typed at the driver loop will produce true lazy lists.
+
+*** Solution
+
+#+begin_src scheme
+(define (make-list exps)
+  (if (null? exps)
+      '()
+      (list 'cons
+            (list 'quote (car exps))
+            (make-list (cdr exps)))))
+(define (text-of-quotation exp)
+  (let ((text (cadr exp)))
+    (if (pair? text)
+        (eval (make-list result) env)
+        text)))
+#+end_src
+
+** Exercise 4.34
+
+Modify the driver loop for the evaluator so that lazy pairs and lists will print in some reasonable way. (What are you going to do about infinite lists?) You may also need to modify the representation of lazy pairs so that the evaluator can identify them in order to print them.
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.34][sicp-ex-4.34]]
+- [[https://wizardbook.wordpress.com/2011/01/11/exercise-4-34/][Exercise 4.34]]
+
+** Exercise 4.35
+
+Write a procedure ~an-integer-between~ that returns an integer between two given bounds. This can be used to implement a procedure that finds Pythagorean triples, i.e., triples of integers $(i,j,k)$ between the given bounds such that $i\le j$ and $i^2+j^2=k^2$, as follows:
+
+#+begin_src scheme
+(define (a-pythagorean-triple-between low high)
+  (let ((i (an-integer-between low high)))
+    (let ((j (an-integer-between i high)))
+      (let ((k (an-integer-between j high)))
+        (require (= (+ (* i i) (* j j)) (* k k)))
+        (list i j k)))))
+#+end_src
+
+*** Solution
+
+#+begin_src scheme
+(define (an-integer-between low high)
+  (require (<= low high))
+  (amp low (an-integer-between (+ low 1) high)))
+#+end_src
+
+** Exercise 4.36
+
+[[file:./chapter-3-exercises.org::*Exercise 3.69][Exercise 3.69]] discussed how to generate the stream of /all/ Pythagorean triples, with no upper bound on the size of the integers to be searched. Explain why simply replacing ~an-integer-between~ by ~an-integer-starting-from~ in the procedure in [[*Exercise 4.35][Exercise 4.35]] is not an adequate way to generate arbitrary Pythagorean triples. Write a procedure that actually will accomplish this. (That is, write a procedure for which repeatedly typing ~try-again~ would in principle eventually generate all Pythagorean triples.)
+
+*** Solution
+
+#+begin_src scheme
+(define (a-pythagorean-triple-greater-than low high)
+  (let ((k (an-integer-starting-from low)))
+    (let ((i (an-integer-between low k)))
+      (let ((j (an-integer-between i k)))
+        (require (= (+ (* i i) (* j j)) (* k k)))
+        (list i j k)))))
+#+end_src
+
+** Exercise 4.37
+
+Ben Bitdiddle claims that the following method for generating Pythagorean triples is more efficient than the one in [[*Exercise 4.35][Exercise 4.35]]. Is he correct? (Hint: Consider the number of possibilities that must be explored.)
+
+#+begin_src scheme
+(define (a-pythagorean-triple-between low high)
+  (let ((i (an-integer-between low high))
+        (hsq (* high high)))
+    (let ((j (an-integer-between i high)))
+      (let ((ksq (+ (* i i) (* j j))))
+        (require (>= hsq ksq))
+        (let ((k (sqrt ksq)))
+          (require (integer? k))
+          (list i j k))))))
+#+end_src
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.37][sicp-ex-4.37]]
+- [[https://wizardbook.wordpress.com/2011/01/12/exercise-4-37/][Exercise 4.37]]
+
+** Exercise 4.38
+
+Modify the multiple-dwelling procedure to omit the requirement that Smith and Fletcher do not live on adjacent floors. How many solutions are there to this modified puzzle?
+
+*** Solution
+
+#+begin_src scheme
+((baker 1) (cooper 2) (fletcher 4) (miller 3) (smith 5))
+((baker 1) (cooper 2) (fletcher 4) (miller 5) (smith 3))
+((baker 1) (cooper 4) (fletcher 2) (miller 5) (smith 3))
+((baker 3) (cooper 2) (fletcher 4) (miller 5) (smith 1))
+((baker 3) (cooper 4) (fletcher 2) (miller 5) (smith 1))
+#+end_src
+
+** Exercise 4.39
+
+Does the order of the restrictions in the multiple-dwelling procedure affect the answer? Does it affect the time to find an answer? If you think it matters, demonstrate a faster program obtained from the given one by reordering the restrictions. If you think it does not matter, argue your case.
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.39][sicp-ex-4.39]]
+- [[https://wizardbook.wordpress.com/2011/01/12/exercise-4-39/][Exercise 4.39]]
+
+** Exercise 4.40
+
+In the multiple dwelling problem, how many sets of assignments are there of people to floors, both before and after the requirement that floor assignments be distinct? It is very inefficient to generate all possible assignments of people to floors and then leave it to backtracking to eliminate them. For example, most of the restrictions depend on only one or two of the person-floor variables, and can thus be imposed before floors have been selected for all the people. Write and demonstrate a much more efficient nondeterministic procedure that solves this problem based upon generating only those possibilities that are not already ruled out by previous restrictions. (Hint: This will require a nest of ~let~ expressions.)
+
+*** Solution
+
+#+begin_src scheme
+(define (multiple-dwelling)
+  (let ((cooper (amb 2 3 4 5))
+        (miller (amb 3 4 5)))
+    (require (> miller cooper))
+    (let ((fletcher (amb 2 3 4)))
+      (require (not (= (abs (- fletcher cooper)) 1)))
+      (let ((smith (amb 1 2 3 4 5)))
+        (require (not (= (abs (- smith fletcher)) 1)))
+        (let ((baker (amb 1 2 3 4)))
+          (require (distinct? (list baker cooper fletcher miller smith)))
+          (list (list 'baker baker)       (list 'cooper cooper)
+                (list 'fletcher fletcher) (list 'miller miller)
+                (list 'smith smith)))))))
+#+end_src
+
+** Exercise 4.41
+
+Write an ordinary Scheme program to solve the multiple dwelling puzzle.
+
+*** Solution
+
+#+begin_src scheme
+(define (distinct? items)
+  (cond ((null? items) true)
+        ((null? (cdr items)) true)
+        ((member (car items) (cdr items)) false)
+        (else (distinct? (cdr items)))))
+(define (perms seq1 seq2)
+  (if (null? seq2)
+      '()
+      (append
+       (map
+        (lambda (s)
+          (cons s
+                (if (pair? (car seq2))
+                    (car seq2)
+                    (list (car seq2)))))
+        seq1)
+       (perms seq1 (cdr seq2)))))
+(define (nearby? a b)
+  (= (abs (- a b)) 1))
+(define (ordinary-multiple-dwelling)
+  (let* ((c-m       (filter
+                     (lambda (t) (> (cadr t) (car t)))
+                     (perms '(2 3 4 5) '(3 4 5))))
+         (f-c-m     (filter
+                     (lambda (t) (and (distinct? t) (not (nearby? (car t) (cadr t)))))
+                     (perms '(2 3 4) c-m)))
+         (s-f-c-m   (filter
+                     (lambda (q) (and (distinct? q) (not (nearby? (car q) (cadr q)))))
+                     (perms '(1 2 3 4 5) f-c-m)))
+         (b-s-f-c-m (filter
+                     distinct?
+                     (perms '(1 2 3 4) s-f-c-m))))
+    (if (null? b-s-f-c-m)
+        false
+        (map list '(baker smith fletcher cooper miller) (car b-s-f-c-m)))))
+(ordinary-multiple-dwelling)
+#+end_src
+
+#+RESULTS:
+| baker    | 3 |
+| smith    | 1 |
+| fletcher | 4 |
+| cooper   | 2 |
+| miller   | 5 |
+
+** Exercise 4.42
+
+Solve the following "Liars" puzzle (from [[file:./references.org::Phillips 1934][Phillips 1934]]):
+
+Five schoolgirls sat for an examination. Their parents--so they thought--showed and undue degree of interest in the result. They therefore agreed that, in writing home about the examination, each girl should make one true statement and one untrue one. The following are the relevant passages from their letters:
+
+- Betty: "Kitty was second in the examination. I was only third."
+- Ethel: "You'll be glad to hear that I was on top. Joan was 2nd."
+- Joan: "I was third, and poor old Ethel was bottom."
+- Kitty: "I came out second. Mary was only fourth."
+- Marry: "I was fourth. Top place was taken by Betty."
+
+What in fact was the order in which the five girls were placed?
+
+*** Solution
+
+#+begin_src scheme
+(define (liars-puzzle)
+  (define (xor p q) (if p (not q) q))
+  (let ((betty (amb 1 2 3 4 5))
+        (kitty (amb 1 2 3 4 5))
+        (ethel (amb 1 2 3 4 5))
+        (joan  (amb 1 2 3 4 5))
+        (mary  (amb 1 2 3 4 5)))
+    (require (distinct? (list betty kitty ethel joan mary)))
+    (require (xor (= kitty 2) (= betty 3)))
+    (require (xor (= ethel 1) (= joan  2)))
+    (require (xor (= ethel 5) (= joan  3)))
+    (require (xor (= kitty 2) (= mary  4)))
+    (require (xor (= betty 1) (= mary  4)))
+    (list (list 'betty betty)
+          (list 'kitty kitty)
+          (list 'ethel ethel)
+          (list 'joan  joan)
+          (list 'mary  mary))))
+#+end_src
+
+#+begin_src scheme
+;;; Amb-Eval input:
+(liars-puzzle)
+
+;;; Starting a new problem
+;;; Amb-Eval value:
+((betty 3) (kitty 1) (ethel 5) (joan 2) (mary 4))
+#+end_src
+
+** Exercise 4.43
+
+Use the ~amb~ evaluator to solve the following puzzle:[fn:49]
+
+Mary Ann Moore's father has a yacht and so has each of his four friends: Colonel Downing, Mr. Hall, Sir Barnacle Hood, and Dr. Parker. Each of the five also has one daughter and each has named his yacht after a daughter of one of the others. Sir Barnacle's yacht is the Gabrielle, Mr. Moore owns the Lorna; Mr. Hall the Rosalind. The Melissa, owned by Colonel Downing, is named after Sir Barnacle's daughter. Gabrielle's father owns the yacht that is named after Dr. Parker's daughter. Who is Lorna's father?
+
+Try to write the program so that it runs efficiently (see [[*Exercise 4.40][Exercise 4.40]]). Also determine how many solutions there are if we are not told that Mary Ann's last name is Moore.
+
+*** Solution
+
+#+begin_src scheme
+(define (father-puzzle)
+  (define father first)
+  (define daughter second)
+  (define yacht third)
+  (let ((moore (list 'moore 'mary-ann 'lorna))
+        (hood (list 'hood (amb 'lorna 'rosalind 'melissa) 'gabrielle)))
+    (let ((hall (list 'hall (amb 'gabrielle 'lorna 'melissa) 'rosalind)))
+      (require (not (eq? (daughter hall) (daughter hood))))
+      (let ((downing (list 'downing (amb 'gabrielle 'lorna 'rosalind) 'melissa)))
+        (require (eq? (daughter hood) 'melissa))
+        (require (not (eq? (daughter hall) 'melissa)))
+        (require (not (eq? (daughter downing) (daughter hood))))
+        (require (not (eq? (daughter downing) (daughter hall))))
+        (let ((parker (list 'parker (amb 'lorna 'rosalind) 'mary-ann))
+              (gabrielle-father (amb hall downing)))
+          (require (not (eq? (daughter parker) (daughter hood))))
+          (require (not (eq? (daughter parker) (daughter hall))))
+          (require (not (eq? (daughter parker) (daughter downing))))
+          (require (eq? (daughter gabrielle-father) 'gabrielle))
+          (require (eq? (daughter parker) (yacht gabrielle-father)))
+          (list hood moore downing hall parker))))))
+#+end_src
+
+#+begin_src scheme
+;;; Amb-Eval input:
+(father-puzzle)
+
+;;; Starting a new problem
+;;; Amb-Eval value:
+((hood    melissa   gabrielle)
+ (moore   mary-ann  lorna)
+ (downing lorna     melissa)
+ (hall    gabrielle rosalind)
+ (parker  rosalind  mary-ann))
+
+;;; Amb-Eval input:
+try-again
+
+;;; There are no more values of
+(father-puzzle)
+#+end_src
+
+If we don't that Mary Ann's last name is Moore, we will get two solutions as below:
+
+#+begin_src scheme
+;;; Amb-Eval input:
+(father-puzzle-variation)
+
+;;; Starting a new problem
+;;; Amb-Eval value:
+((hood    melissa   gabrielle)
+ (moore   mary-ann  lorna)
+ (downing lorna     melissa)
+ (hall    gabrielle rosalind)
+ (parker  rosalind  mary-ann))
+
+;;; Amb-Eval input:
+try-again
+
+;;; Amb-Eval value:
+((hood    melissa   gabrielle)
+ (moore   gabrielle lorna)
+ (downing rosalind  melissa)
+ (hall    mary-ann  rosalind)
+ (parker  lorna     mary-ann))
+
+;;; Amb-Eval input:
+try-again
+
+;;; There are no more values of
+(father-puzzle-variation)
+#+end_src
+
+** Exercise 4.44
+
+[[file:./chapter-2-exercises.org::*Exercise 2.42][Exercise 2.42]] described the "eight-queens puzzle" of placing queens on a chessboard so that no two attack each other. Write a nondeterministic program to solve this puzzle.
+
+*** Solution
+
+#+begin_src scheme
+(define (queens n)
+  (define (new-queen rest-queens)
+    (define (check-and-append row column old-column)
+      (if (= old-column -1)
+          (append rest-queens (list row))
+          (let ((old-row (list-ref rest-queens old-column)))
+            (require (not (= row old-row)))
+            (require (not (= (+ row column) (+ old-row old-column))))
+            (require (not (= (- row column) (- old-row old-column))))
+            (check-and-append row column (- old-column 1)))))
+    (let ((new-column (length rest-queens))
+          (q (an-integer-between 1 8)))
+      (check-and-append q new-column (- new-column 1))))
+  (define (iter result)
+    (if (= (length result) n)
+        result
+        (iter (new-queen result))))
+  (iter '()))
+#+end_src
+
+#+begin_src scheme
+;;; Amb-Eval input:
+(queens 8)
+
+;;; Starting a new problem
+;;; Amb-Eval value:
+(1 5 8 6 3 7 2 4)
+
+;;; Amb-Eval input:
+try-again
+
+;;; Amb-Eval value:
+(1 6 8 3 7 4 2 5)
+
+;;; Amb-Eval input:
+try-again
+
+;;; Amb-Eval value:
+(1 7 4 6 8 2 5 3)
+#+end_src
+
+** Exercise 4.45
+
+With the grammar given above, the following sentence can be parsed in five different ways: "The professor lectures to the student in the class with the cat." Give the five parses and explain the differences in shades of meaning among them.
+
+*** Solution
+
+#+begin_src scheme
+;;; Amb-Eval input:
+(parse '(the professor lectures to the student in the class with the cat))
+
+;;; Starting a new problem
+;;; Amb-Eval value:
+(sentence
+ (simple-noun-phrase (article the) (noun professor))
+ (verb-phrase
+  (verb-phrase
+   (verb-phrase
+    (verb lectures)
+    (prep-phrase
+     (prep to)
+     (simple-noun-phrase (article the) (noun student))))
+   (prep-phrase
+    (prep in)
+    (simple-noun-phrase (article the) (noun class))))
+  (prep-phrase
+   (prep with)
+   (simple-noun-phrase (article the) (noun cat)))))
+
+;;; Amb-Eval input:
+try-again
+
+;;; Amb-Eval value:
+(sentence
+ (simple-noun-phrase (article the) (noun professor))
+ (verb-phrase
+  (verb-phrase
+   (verb lectures)
+   (prep-phrase
+    (prep to)
+    (simple-noun-phrase (article the) (noun student))))
+  (prep-phrase
+   (prep in)
+   (noun-phrase
+    (simple-noun-phrase (article the) (noun class))
+    (prep-phrase
+     (prep with)
+     (simple-noun-phrase (article the) (noun cat)))))))
+
+;;; Amb-Eval input:
+try-again
+
+;;; Amb-Eval value:
+(sentence
+ (simple-noun-phrase (article the) (noun professor))
+ (verb-phrase
+  (verb-phrase
+   (verb lectures)
+   (prep-phrase
+    (prep to)
+    (noun-phrase
+     (simple-noun-phrase (article the) (noun student))
+     (prep-phrase
+      (prep in)
+      (simple-noun-phrase (article the) (noun class))))))
+  (prep-phrase
+   (prep with)
+   (simple-noun-phrase (article the) (noun cat)))))
+
+;;; Amb-Eval input:
+try-again
+
+;;; Amb-Eval value:
+(sentence
+ (simple-noun-phrase (article the) (noun professor))
+ (verb-phrase
+  (verb lectures)
+  (prep-phrase
+   (prep to)
+   (noun-phrase
+    (noun-phrase
+     (simple-noun-phrase (article the) (noun student))
+     (prep-phrase
+      (prep in)
+      (simple-noun-phrase (article the) (noun class))))
+    (prep-phrase
+     (prep with)
+     (simple-noun-phrase (article the) (noun cat)))))))
+
+;;; Amb-Eval input:
+try-again
+
+;;; Amb-Eval value:
+(sentence
+ (simple-noun-phrase (article the) (noun professor))
+ (verb-phrase
+  (verb lectures)
+  (prep-phrase
+   (prep to)
+   (noun-phrase
+    (simple-noun-phrase (article the) (noun student))
+    (prep-phrase
+     (prep in)
+     (noun-phrase
+      (simple-noun-phrase (article the) (noun class))
+      (prep-phrase
+       (prep with)
+       (simple-noun-phrase (article the) (noun cat)))))))))
+
+;;; Amb-Eval input:
+try-again
+
+;;; There are no more values of
+(parse (quote (the professor lectures to the student in the class with the cat)))
+#+end_src
+
+** Exercise 4.46
+
+The evaluators in Section 4.1 and Section 4.2 do not determine what order operands are evaluated in. We will see that the ~amb~ evaluator evaluates them from left to right. Explain why our parsing program wouldn't work if the operands were evaluated in some other order.
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.46][sicp-ex-4.46]]
+- [[https://wizardbook.wordpress.com/2011/01/15/exercise-4-46/][Exercise 4.46]]
+
+** Exercise 4.47
+
+Louis Reasoner suggests that, since a verb phrase is either a verb or a verb phrase followed by a prepositional phrase, it would be much more straightforward to define the procedure ~parse-verb-phrase~ as follows (and similarly for noun phrases):
+
+#+begin_src scheme
+(define (parse-verb-phrase)
+  (amb (parse-word verbs)
+       (list 'verb-phrase
+             (parse-verb-phrase)
+             (parse-prepositional-phrase))))
+#+end_src
+
+Does this work? Does the program's behavior change if we interchange the order of expressions in the ~amb~?
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.47][sicp-ex-4.47]]
+- [[https://wizardbook.wordpress.com/2011/01/17/exercise-4-47/][Exercise 4.47]]
+
+** Exercise 4.48
+
+Extend the grammar given above to handle more complex sentences. For example, you could extend noun phrases and verb phrases to include adjectives and adverbs, or you could handle compound sentences.[fn:53]
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.48][sicp-ex-4.48]]
+- [[https://wizardbook.wordpress.com/2011/01/17/exercise-4-48/][Exercise 4.48]]
+
+** Exercise 4.49
+
+Alyssa P. Hacker is more interested in generating interesting sentences than in parsing them. She reasons that by simply changing the procedure ~parse-word~ so that it ignores the "input sentence" and instead always succeeds and generates an appropriate word, we can use the programs we had built for parsing to do generation instead. Implement Alyssa's idea, and show the first half-dozen or so sentences generated.[fn:54]
+
+*** Solution
+
+#+begin_src scheme
+(define (generate-word word-list)
+  (require (not (null? *unparsed*)))
+  (require (memq (car *unparsed*) (cdr word-list)))
+  (let ((found-word (an-element-of (cdr word-list))))
+    (set! *unparsed* (cdr *unparsed*))
+    (list (car word-list) found-word)))
+#+end_src
+
+** Exercise 4.50
+
+Implement a new special form ~ramb~ that is like ~amb~ except that it searches alternatives in a random order, rather than from left to right. Show how this can help with Alyssa's problem in [[*Exercise 4.49][Exercise 4.49]].
+
+*** Solution
+
+#+begin_src scheme
+(define (analyze-ramb exp)
+  (let ((cprocs (map analyze (amb-choices exp))))
+    (lambda (env succeed fail)
+      (define (remove item seq)
+        (if (equal? item (car seq))
+            (cdr seq)
+            (cons (car seq) (remove item (cdr seq)))))
+      (define (shuffled seq)
+        (if (null? seq)
+            '()
+            (let ((pos (random (length seq))))
+              (let (item (list-ref seq pos))
+                (cons item (shuffled (remove item seq)))))))
+      (define (try-next choices)
+        (if (null? choices)
+            (fail)
+            ((car choices)
+             env
+             succeed
+             (lambda () (try-next (cdr choices))))))
+      (try-next (shuffled cprocs)))))
+#+end_src
+
+** Exercise 4.51
+
+Implement a new kind of assignment called ~permanent-set!~ that is not undone upon failure. For example, we can choose two distinct elements from a list and count the number of trials required to make a successful choice as follows:
+
+#+begin_src scheme
+(define count 0)
+(let ((x (an-element-of '(a b c)))
+      (y (an-element-of '(a b c))))
+  (permanent-set! count (+ count 1))
+  (require (not (eq? x y)))
+  (list x y count))
+;;; Starting a new problem
+;;; Amb-Eval value:
+(a b 2)
+;;; Amb-Eval input:
+try-again
+;;; Amb-Eval value:
+(a c 3)
+#+end_src
+
+What values would have been displayed if we had used ~set!~ here rather than ~permanent-set!~?
+
+*** Solution
+
+#+begin_src scheme
+(define (p-assignment? exp)
+  (tagged-list? exp 'permanent-set!))
+(define (p-assignment-variable exp) (cadr exp))
+(define (p-assignment-value exp) (caddr exp))
+
+(define (analyze-p-assignment exp)
+  (let ((var (p-assignment-variable exp))
+        (vproc (analyze (p-assignment-value exp))))
+    (lambda (env succeed fail)
+      (vproc env
+             (lambda (val fail2)
+               (let ((old-value
+                      (lookup-variable-value var env)))
+                 (set-variable-value! var val env)
+                 (succeed 'ok (lambda () (fail2)))))
+             fail))))
+#+end_src
+
+#+begin_src scheme
+;;; Amb-Eval input:
+(define count 0)
+
+;;; Starting a new problem
+;;; Amb-Eval value:
+ok
+
+;;; Amb-Eval input:
+(let ((x (an-element-of '(a b c)))
+      (y (an-element-of '(a b c))))
+  (permanent-set! count (+ count 1))
+  (require (not (eq? x y)))
+  (list x y count))
+
+;;; Starting a new problem
+;;; Amb-Eval value:
+(a b 2)
+
+;;; Amb-Eval input:
+try-again
+
+;;; Amb-Eval value:
+(a c 3)
+
+;;; Amb-Eval input:
+try-again
+
+;;; Amb-Eval value:
+(b a 4)
+
+;;; Amb-Eval input:
+try-again
+
+;;; Amb-Eval value:
+(b c 6)
+
+;;; Amb-Eval input:
+try-again
+
+;;; Amb-Eval value:
+(c a 7)
+
+;;; Amb-Eval input:
+try-again
+
+;;; Amb-Eval value:
+(c b 8)
+
+;;; Amb-Eval input:
+try-again
+
+;;; There are no more values of
+(let ((x (an-element-of (quote (a b c)))) (y (an-element-of (quote (a b c))))) (permanent-set! count (+ count 1)) (require (not (eq? x y))) (list x y count))
+#+end_src
+
+If we had used ~set!~ to rather than ~permanent-set!~:
+
+#+begin_src scheme
+;;; Amb-Eval input:
+(define count 0)
+
+;;; Starting a new problem
+;;; Amb-Eval value:
+ok
+
+;;; Amb-Eval input:
+(let ((x (an-element-of '(a b c)))
+      (y (an-element-of '(a b c))))
+  (set! count (+ count 1))
+  (require (not (eq? x y)))
+  (list x y count))
+
+;;; Starting a new problem
+;;; Amb-Eval value:
+(a b 1)
+
+;;; Amb-Eval input:
+try-again
+
+;;; Amb-Eval value:
+(a c 1)
+
+;;; Amb-Eval input:
+try-again
+
+;;; Amb-Eval value:
+(b a 1)
+
+;;; Amb-Eval input:
+try-again
+
+;;; Amb-Eval value:
+(b c 1)
+
+;;; Amb-Eval input:
+try-again
+
+;;; Amb-Eval value:
+(c a 1)
+
+;;; Amb-Eval input:
+try-again
+
+;;; Amb-Eval value:
+(c b 1)
+
+;;; Amb-Eval input:
+try-again
+
+;;; There are no more values of
+(let ((x (an-element-of (quote (a b c)))) (y (an-element-of (quote (a b c))))) (set! count (+ count 1)) (require (not (eq? x y))) (list x y count))
+#+end_src
+
+** Exercise 4.52
+
+Implement a new construct called ~if-fail~ that permits the user to catch the failure of an expression. ~if-fail~ takes two expressions. It evaluates the first expression as usual and returns as usual if the evaluation succeeds. If the evaluation fails, however, the value of the second expression is returned, as in the following example:
+
+#+begin_src scheme
+;;; Amb-Eval input:
+(if-fail (let ((x (an-element-of '(1 3 5))))
+           (require (even? x))
+           x)
+         'all-odd)
+;;; Starting a new problem
+;;; Amb-Eval value:
+all-odd
+
+;;; Amb-Eval input:
+(if-fail (let ((x (an-element-of '(1 3 5 8))))
+           (require (even? x))
+           x)
+         'all-odd)
+;;; Starting a new problem
+;;; Amb-Eval value:
+8
+#+end_src
+
+*** Solution
+
+#+begin_src scheme
+; add this clause to analyze procedure
+((if-fail? exp)         (analyze-if-fail exp))
+
+(define (if-fail? exp) (tagged-list? exp 'if-fail))
+(define (if-fail-cond exp) (cadr exp))
+(define (if-fail-alt exp) (caddr exp))
+(define (analyze-if-fail exp)
+  (let ((cproc (analyze (if-fail-cond exp)))
+        (aproc (analyze (if-fail-alt exp))))
+    (lambda (env succeed fail)
+      (cproc env
+             succeed
+             (lambda () (aproc env succeed fail))))))
+#+end_src
+
+** Exercise 4.53
+
+With ~permanent-set!~ as described in [[*Exercise 4.51][Exercise 4.51]] and ~if-fail~ as in [[*Exercise 4.52][Exercise 4.52]], what will be the result of evaluating
+
+#+begin_src scheme
+(let ((pairs '()))
+  (if-fail
+   (let ((p (prime-sum-pair '(1 3 5 8)
+                            '(20 35 110))))
+     (permanent-set! pairs (cons p pairs))
+     (amb))
+   pairs))
+#+end_src
+
+*** Solution
+
+#+begin_src scheme
+;;; Starting a new problem
+;;; Amb-Eval value:
+((8 35) (3 110) (3 20))
+#+end_src
+
+** Exercise 4.54
+
+If we had not realized that ~require~ could be implemented as an ordinary procedure that uses ~amb~, to be defined by the user as part of a nondeterministic program, we would have had to implement it as a special form. This would require syntax procedures
+
+#+begin_src scheme
+(define (require? exp)
+  (tagged-list? exp 'require))
+(define (require-predicate exp)
+  (cadr exp))
+#+end_src
+
+and a new clause in the dispatch in ~analyze~
+
+#+begin_src scheme
+((require? exp) (analyze-require exp))
+#+end_src
+
+as well the procedure ~analyze-require~ that handles ~require~ expressions. Complete the following definition of ~analyze-require~.
+
+#+begin_src scheme
+(define (analyze-require exp)
+  (let ((pproc (analyze (require-predicate exp))))
+    (lambda (env succeed fail)
+      (pproc env
+             (lambda (pred-value fail2)
+               (if <??>
+                   <??>
+                   (succeed 'ok fail2)))
+             fail))))
+#+end_src
+
+*** Solution
+
+#+begin_src scheme
+(define (analyze-require exp)
+  (let ((pproc (analyze (require-predicate exp))))
+    (lambda (env succeed fail)
+      (pproc env
+             (lambda (pred-value fail2)
+               (if (false? pred-value)
+                   (fail2)
+                   (succeed 'ok fail2)))
+             fail))))
+#+end_src
+
+** Exercise 4.55
+
+Give simple queries that retrieve the following information from the data base:
+
+1. all people supervised by Ben Bitdiddle;
+2. the names and jobs of all people in the accounting division;
+3. the names and addresses of all people who live i n Slumerville.
+
+*** Solution
+
+#+begin_src scheme
+;; 1.
+(supervisor ?person (Bitdiddle Ben))
+;; 2.
+(job ?person (accounting . ?job))
+;; 3.
+(address ?person (Slumerville . ?address))
+#+end_src
+
+#+begin_src scheme
+;;; Query input:
+(supervisor ?person (Bitdiddle Ben))
+
+;;; Query value:
+(supervisor (Tweakit Lem E) (Bitdiddle Ben))
+(supervisor (Fect Cy D) (Bitdiddle Ben))
+(supervisor (Hacker Alyssa P) (Bitdiddle Ben))
+
+;;; Query input:
+(job ?person (accounting . ?job))
+
+;;; Query value:
+(job (Cratchet Robert) (accounting scrivener))
+(job (Scrooge Eben) (accounting chief accountant))
+
+;;; Query input:
+(address ?person (Slumerville . ?address))
+
+;;; Query value:
+(address (Aull Dewitt) (Slumerville (Onion Square) 5))
+(address (Reasoner Louis) (Slumerville (Pine Tree Road) 80))
+(address (Bitdiddle Ben) (Slumerville (Ridge Road) 10))
+#+end_src
+
+** Exercise 4.56
+
+Formulate compound queries that retrieve the following information:
+
+a. the names of all people who are supervised by Ben Bitdiddle, together with their addresses;
+b. all people whose salary is less than Ben Bitdiddle's, together with their salary and Ben Bitdiddle's salary;
+c. all people who are supervised by someone who is not in the computer division, together with the supervisor's name and job.
+
+*** Solution
+
+#+begin_src scheme
+;; Part a
+(and (supervisor ?person (Bitdiddle Ben))
+     (address ?person ?where))
+;; Part b
+(and (salary (Bitdiddle Ben) ?ben)
+     (salary ?person ?amount)
+     (lisp-value > ?ben ?amount))
+;; Part c
+(and (supervisor ?person ?leader)
+     (not (job ?leader (computer . ?type)))
+     (job ?leader ?job))
+#+end_src
+
+#+begin_src scheme
+;;; Query input:
+(and (supervisor ?person (Bitdiddle Ben))
+     (address ?person ?where))
+
+;;; Query value:
+(and (supervisor (Tweakit Lem E) (Bitdiddle Ben))
+     (address (Tweakit Lem E) (Boston (Bay State Road) 22)))
+(and (supervisor (Fect Cy D) (Bitdiddle Ben))
+     (address (Fect Cy D) (Cambridge (Ames Street) 3)))
+(and (supervisor (Hacker Alyssa P) (Bitdiddle Ben))
+     (address (Hacker Alyssa P) (Cambridge (Mass Ave) 78)))
+
+;;; Query input:
+(and (salary (Bitdiddle Ben) ?ben)
+     (salary ?person ?amount)
+     (lisp-value > ?ben ?amount))
+
+;;; Query value:
+(and (salary (Bitdiddle Ben) 60000)
+     (salary (Aull Dewitt) 25000)
+     (lisp-value > 60000 25000))
+(and (salary (Bitdiddle Ben) 60000)
+     (salary (Cratchet Robert) 18000)
+     (lisp-value > 60000 18000))
+(and (salary (Bitdiddle Ben) 60000)
+     (salary (Reasoner Louis) 30000)
+     (lisp-value > 60000 30000))
+(and (salary (Bitdiddle Ben) 60000)
+     (salary (Tweakit Lem E) 25000)
+     (lisp-value > 60000 25000))
+(and (salary (Bitdiddle Ben) 60000)
+     (salary (Fect Cy D) 35000)
+     (lisp-value > 60000 35000))
+(and (salary (Bitdiddle Ben) 60000)
+     (salary (Hacker Alyssa P) 40000)
+     (lisp-value > 60000 40000))
+
+;;; Query input:
+(and (supervisor ?person ?leader)
+     (not (job ?leader (computer . ?type)))
+     (job ?leader ?job))
+
+;;; Query value:
+(and (supervisor (Aull Dewitt) (Warbucks Oliver))
+     (not (job (Warbucks Oliver) (computer . ?type)))
+     (job (Warbucks Oliver) (administration big wheel)))
+(and (supervisor (Cratchet Robert) (Scrooge Eben))
+     (not (job (Scrooge Eben) (computer . ?type)))
+     (job (Scrooge Eben) (accounting chief accountant)))
+(and (supervisor (Scrooge Eben) (Warbucks Oliver))
+     (not (job (Warbucks Oliver) (computer . ?type)))
+     (job (Warbucks Oliver) (administration big wheel)))
+(and (supervisor (Bitdiddle Ben) (Warbucks Oliver))
+     (not (job (Warbucks Oliver) (computer . ?type)))
+     (job (Warbucks Oliver) (administration big wheel)))
+#+end_src
+
+** Exercise 4.57
+
+Define a rule that says that person 1 can replace person 2 if either person 1 does the same job as person 2 or someone who does person 1's job can also do person 2's job, and if person 1 and person 2 are not the same person. Using your rule, give queries that find the following:
+
+a. all people who can replace Cy D. Fect;
+b. all people who can replace someone who is being paid more than they are, together with the two salaries.
+
+*** Solution
+
+#+begin_src scheme
+(assert!
+ (rule (can-replace ?person-1 ?person-2)
+       (and (job ?person-1 ?job1)
+            (job ?person-2 ?job2)
+            (or (same ?job1 ?job2)
+                (can-do-job ?job1 ?job2))
+            (not (same ?person-1 ?person-2)))))
+
+;; Part a
+(can-replace ?person (Fect Cy D))
+;; Part b
+(and (can-replace ?person-1 ?person2)
+     (salary ?person-1 ?paid-1)
+     (salary ?person-2 ?paid-2)
+     (lisp-value < ?paid-1 ?paid-2))
+#+end_src
+
+#+begin_src scheme
+;;; Query input:
+(assert!
+ (rule (can-replace ?person-1 ?person-2)
+       (and (job ?person-1 ?job1)
+            (job ?person-2 ?job2)
+            (or (same ?job1 ?job2)
+                (can-do-job ?job1 ?job2))
+            (not (same ?person-1 ?person-2)))))
+
+Assertion added to data base.
+
+;;; Query input:
+(can-replace ?person (Fect Cy D))
+
+;;; Query value:
+(can-replace (Bitdiddle Ben) (Fect Cy D))
+(can-replace (Hacker Alyssa P) (Fect Cy D))
+
+;;; Query input:
+(and (can-replace ?person-1 ?person-2)
+     (salary ?person-1 ?paid-1)
+     (salary ?person-2 ?paid-2)
+     (lisp-value < ?paid-1 ?paid-2))
+
+;;; Query value:
+(and (can-replace (Aull Dewitt) (Warbucks Oliver))
+     (salary (Aull Dewitt) 25000)
+     (salary (Warbucks Oliver) 150000)
+     (lisp-value < 25000 150000))
+(and (can-replace (Fect Cy D) (Hacker Alyssa P))
+     (salary (Fect Cy D) 35000)
+     (salary (Hacker Alyssa P) 40000)
+     (lisp-value < 35000 40000))
+#+end_src
+
+** Exercise 4.58
+
+Define a rule that says that a person is a "big shot" in a division if the person works in the division but does not have a supervisor who works in the division.
+
+*** Solution
+
+#+begin_src scheme
+(rule (big-shot ?person ?division)
+      (and (job ?person (?division . ?title))
+           (or (not (supervisor ?person ?leader))
+               (and (supervisor ?person ?leader)
+                    (not (job ?leader (?division . ?leader-title)))))))
+#+end_src
+
+#+begin_src scheme
+;;; Query input:
+(assert!
+  (rule (big-shot ?person ?division)
+        (and (job ?person (?division . ?title))
+             (or (not (supervisor ?person ?leader))
+                 (and (supervisor ?person ?leader)
+                      (not (job ?leader (?division . ?leader-title))))))))
+
+Assertion added to data base.
+
+;;; Query input:
+(big-shot ?person computer)
+
+;;; Query value:
+(big-shot (Bitdiddle Ben) computer)
+
+;;; Query input:
+(big-shot ?who ?where)
+
+;;; Query value:
+(big-shot (Warbucks Oliver) administration)
+(big-shot (Scrooge Eben) accounting)
+(big-shot (Bitdiddle Ben) computer)
+#+end_src
+
+** Exercise 4.59
+
+Ben Bitdiddle has missed one meeting too many. Fearing that his habit of forgetting meetings could cost him his job, Ben decides to do something about it. He adds all the weekly meetings of the firm to the Microshaft data base by asserting the following:
+
+#+begin_src scheme
+(meeting accounting (Monday 9am))
+(meeting administration (Monday 10am))
+(meeting computer (Wednesday 3pm))
+(meeting administration (Friday 1pm))
+#+end_src
+
+Each of the above assertions is for a meeting of an entire division. Ben also adds an entry for the company-wide meeting that spans all the divisions. All of the company's employees attend this meeting.
+
+#+begin_src scheme
+(meeting whole-company (Wednesday 4pm))
+#+end_src
+
+a. On Friday morning, Ben wants to query the data base for all the meetings that occur that day. What query should he use?
+
+b. Alyssa P. Hacker is unimpressed. She thinks it would be much more useful to be able to ask for her meetings by specifying her name. So she designs a rule that says that a person's meetings include all ~whole-company~ meetings plus all meetings of that person's division. Fill in the body of Alyssa's rule.
+
+   #+begin_src scheme
+(rule (meeting-time ?person ?day-and-time)
+      <rule-body>)
+   #+end_src
+
+c. Alyssa arrives at work on Wednesday morning and wonders what meetings she has to attend that day. Having defined the above rule, what query should she make to find this out?
+
+*** Solution
+
+#+begin_src scheme
+;;; Query input:
+(assert! (meeting accounting (Monday 9am)))
+
+Assertion added to data base.
+
+;;; Query input:
+(assert! (meeting administration (Monday 10am)))
+
+Assertion added to data base.
+
+;;; Query input:
+(assert! (meeting computer (Wednesday 3pm)))
+
+Assertion added to data base.
+
+;;; Query input:
+(assert! (meeting administration (Friday 1pm)))
+
+Assertion added to data base.
+
+;;; Query input:
+(assert! (meeting whole-company (Wednesday 4pm)))
+
+Assertion added to data base.
+#+end_src
+
+**** Part a
+
+#+begin_src scheme
+(meeting ?division (Friday . ?time))
+#+end_src
+
+#+begin_src scheme
+;;; Query input:
+(meeting ?division (Friday . ?time))
+
+;;; Query value:
+(meeting administration (Friday |1pm|))
+#+end_src
+
+**** Part b
+
+#+begin_src scheme
+(rule (meeting-time ?person ?day-and-time)
+      (or (meeting whole-company ?day-and-time)
+          (and (job ?person (?division . ?title))
+               (meeting ?division ?day-and-time))))
+#+end_src
+
+#+begin_src scheme
+;;; Query input:
+(assert!
+  (rule (meeting-time ?person ?day-and-time)
+        (or (meeting whole-company ?day-and-time)
+            (and (job ?person (?division . ?title))
+                 (meeting ?division ?day-and-time)))))
+
+Assertion added to data base.
+#+end_src
+
+**** Part c
+
+#+begin_src scheme
+(meeting-time (Hacker Alyssa P) (Wednesday . ?time))
+#+end_src
+
+#+begin_src scheme
+;;; Query input:
+(meeting-time (Hacker Alyssa P) (Wednesday . ?time))
+
+;;; Query value:
+(meeting-time (Hacker Alyssa P) (Wednesday |4pm|))
+(meeting-time (Hacker Alyssa P) (Wednesday |3pm|))
+#+end_src
+
+** Exercise 4.60
+
+By giving the query
+
+#+begin_src scheme
+(lives-near ?person (Hacker Alyssa P))
+#+end_src
+
+Alyssa P. Hacker is able to find people who live near her, with whom she can ride to work. On the other hand, when she tries to find all pairs of people who live near each other by querying
+
+#+begin_src scheme
+(lives-near ?person-1 ?person-2)
+#+end_src
+
+she notices that each pair of people who live near each other is listed twice; for example,
+
+#+begin_src scheme
+(lives-near (Hacker Alyssa P) (Fect Cy D))
+(lives-near (Fect Cy D) (Hacker Alyssa P))
+#+end_src
+
+Why does this happen? Is there a way to find a list of people who live near each other, in which each pair appears only once? Explain.
+
+*** Solution
+
+Because all the answers satisfy the rule.
+
+#+begin_src scheme
+(rule (lives-near-uniq ?person-1 ?person-2)
+      (and (address ?person-1 (?town . ?rest-1))
+           (address ?person-2 (?town . ?rest-2))
+           (not (same ?person-1 ?person-2))
+           (lisp-value char-before? ?person-1 ?person-2)))
+#+end_src
+
+** Exercise 4.61
+
+The following rules implement a ~next-to~ relation that finds adjacent elements of a list:
+
+#+begin_src scheme
+(rule (?x next-to ?y in (?x ?y . ?u)))
+(rule (?x next-to ?y in (?v . ?z))
+      (?x next-to ?y in ?z))
+#+end_src
+
+What will the response be to the following queries?
+
+#+begin_src scheme
+(?x next-to ?y in (1 (2 3) 4))
+(?x next-to  1 in (2 1 3 1))
+#+end_src
+
+*** Solution
+
+#+begin_src scheme
+;;; Query input:
+(?x next-to ?y in (1 (2 3) 4))
+
+;;; Query results:
+(1 next-to (2 3) in (1 (2 3) 4))
+((2 3) next-to 4 in (1 (2 3) 4))
+
+;;; Query input:
+(?x next-to  1 in (2 1 3 1))
+
+;;; Query results:
+(2 next-to 1 in (2 1 3 1))
+(3 next-to 1 in (2 1 3 1))
+#+end_src
+
+** Exercise 4.62
+
+Define rules to implement the ~last-pair~ operation of [[file:./chapter-2-exercises.org::*Exercise 2.17][Exercise 2.17]], which returns a list containing the last element of a nonempty list. Check your rules on queries such as ~(last-pair (3) ?x)~, ~(last-pair (1 2 3) ?x)~ and ~(last-pair (2 ?x) (3))~. Do your rules work correctly on queries such as ~(last-pair ?x (3))~?
+
+*** Solution
+
+#+begin_src scheme
+(rule (last-pair (?x) (?x)))
+(rule (last-pair (?v . ?z) (?x))
+      (last-pair ?z (?x)))
+#+end_src
+
+** Exercise 4.63
+
+The following data base (see Genesis 4) traces the genealogy of the descendants of Ada back to Adam, by way of Cain:
+
+#+begin_src scheme
+(son Adam Cain)
+(son Cain Enoch)
+(son Enoch Irad)
+(son Irad Mehujael)
+(son Mehujael Methushael)
+(son Methushael Lamech)
+(wife Lamech Ada)
+(son Ada Jabal)
+(son Ada Jubal)
+#+end_src
+
+Formulate rules such as "If /S/ is the son of /f/, and /f/ is the son of /G/, then /S/ is the grandson of /G/" and "If /W/ is the wife of /M/, and /S/ is the son of /W/, then /S/ is the son of /M/" (which was supposedly more true in biblical times than today) that will enable the query system to find the grandson of Cain: the sons of Lamech; the grandsons of Methushael. (See [[*Exercise 4.69][Exercise 4.69]] for some rules to deduce more complicated relationships.)
+
+*** Solution
+
+#+begin_src scheme
+(rule (father ?son ?dad)
+      (and (wife ?dad ?mon)
+           (son ?mon ?son)))
+(rule (grandson ?person-1 ?person-2)
+      (and (son ?person-1 ?middle)
+           (or (son ?middle ?person-2)
+               (father ?person-2 ?middle))))
+#+end_src
+
+#+begin_src scheme
+;;; Query input:
+(grandson Cain ?s)
+
+;;; Query results:
+(grandson Cain Irad)
+
+;;; Query input:
+(father ?s Lamech)
+
+;;; Query results:
+(father Jabal Lamech)
+(father Jubal Lamech)
+
+;;; Query input:
+(grandson Methushael ?s)
+
+;;; Query results:
+(grandson Methushael Jabal)
+(grandson Methushael Jubal)
+#+end_src
+
+** Exercise 4.64
+
+Louis Reasoner mistakenly deletes the ~outranked-by~ rule (Section 4.4.1) from the data base. When he realizes this, he quickly reinstalls it. unfortunately, he makes a slight change in the rule, and types it in as
+
+#+begin_src scheme
+(rule (outranked-by ?staff-person ?boss)
+      (or (supervisor ?staff-person ?boss)
+          (and (outranked-by ?middle-manager ?boss)
+               (supervisor ?staff-person
+                           ?middle-manager))))
+#+end_src
+
+Just after Louis types this information into the system, DeWitt Aull comes by to find out who outranks Ben Bitdiddle. He issues the query
+
+#+begin_src scheme
+(outranked-by (Bitdiddle Ben) ?who)
+#+end_src
+
+After answering, the system goes into an infinite loop. Explain why.
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.64][sicp-ex-4.64]]
+- [[https://wizardbook.wordpress.com/2011/02/01/exercise-4-64/][Exercise 4.64]]
+
+** Exercise 4.65
+
+Cy D. Fect, looking forward to the day when he will rise in the organization, gives a query to find all the wheels (using the ~wheel~ rule of Section 4.4.1):
+
+#+begin_src scheme
+(wheel ?who)
+#+end_src
+
+To his surprise, the system responds
+
+#+begin_src scheme
+;;; Query results:
+(wheel (Warbucks Oliver))
+(wheel (Bitdiddle Ben))
+(wheel (Warbucks Oliver))
+(wheel (Warbucks Oliver))
+(wheel (Warbucks Oliver))
+#+end_src
+
+Why is Oliver Warbucks listed four times?
+
+*** Solution
+
+#+begin_src scheme
+;; 1.
+(and (supervisor (Bitdiddle Ben) (Warbucks Oliver))
+     (supervisor (Hacker Alyssa P) (Bitdiddle Ben)))
+;; 2.
+(and (supervisor (Bitdiddle Ben) (Warbucks Oliver))
+     (supervisor (Fect Cy D) (Bitdiddle Ben)))
+;; 3.
+(and (supervisor (Bitdiddle Ben) (Warbucks Oliver))
+     (supervisor (Tweakit Lem E) (Bitdiddle Ben)))
+;; 4.
+(and (supervisor (Scrooge Eben) (Warbucks Oliver))
+     (supervisor (Cratchet Robert) (Scrooge Eben)))
+#+end_src
+
+** Exercise 4.66
+
+Ben has been generalizing the query system to provide statistics about the company. For example, to find the total salaries of all the computer programmers one will be able to say
+
+#+begin_src scheme
+(sum ?amount (and (job ?x (computer programmer))
+                  (salary ?x ?amount)))
+#+end_src
+
+In general, Ben's new system allows expressions of the form
+
+#+begin_src scheme
+(accumulation-function <variable> <query pattern>)
+#+end_src
+
+where ~accumulation-function~ can be things like ~sum~, ~average~, or ~maximum~. Ben reasons that it should be a cinch to implement this. He will simply feed the query pattern to ~qeval~. This will produce a stream of frames. He will then pass this stream through a mapping function that extracts the value of the designated variable from each frame in the stream and feed the resulting stream of values to the accumulation function. Just as Ben completes the implementation and is about to try it out, Cy walks by, still puzzling over the ~wheel~ query result in [[*Exercise 4.65][Exercise 4.65]]. When Cy shows Ben the system's response, Ben groans, "Oh, no, my simple accumulation scheme won't work!"
+
+What has Ben just realized? Outline a method he can use to salvage the situation.
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.66][sicp-ex-4.66]]
+- [[https://wizardbook.wordpress.com/2011/02/16/exercise-4-66/][Exercise 4.66]]
+
+** Exercise 4.67
+
+Devise a way to install a loop detector in the query system so as to avoid the kinds of simple loops illustrated in the text and in [[*Exercise 4.64][Exercise 4.64]]. The general idea is that the system should maintain some sort of history of its current chain of deductions and should not begin processing a query that it is already working on. Describe what kind of information (patterns and frames) is included in this history, and how the check should be made. (After you study the details of the query-system implementation in Section 4.4.4, you may want to modify the system to include your loop detector.)
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.67][sicp-ex-4.67]]
+- [[https://wizardbook.wordpress.com/2011/06/22/exercise-4-67/][Exercise 4.67]]
+
+** Exercise 4.68
+
+Define rules to implement the ~reverse~ operation of [[file:./chapter-2-exercises.org::*Exercise 2.18][Exercise 2.18]], which returns a list containing the same elements as a given list in reverse order. (Hint: Use ~append-to-form~.) Can your rules answer both ~(reverse (1 2 3) ?x)~ and ~(reverse ?x (1 2 3))~?
+
+*** Solution
+
+#+begin_src scheme
+(rule (reverse () ()))
+(rule (reverse (?h . ?t) ?y)
+      (and (reverse ?t ?reversed-t)
+           (append-to-form ?reversed-t (?h) ?y)))
+#+end_src
+
+** Exercise 4.69
+
+Beginning with the data base and the rules you formulated in [[*Exercise 4.63][Exercise 4.63]], devise a rule for adding "greats" to a grandson relationship. This should enable the system to deduce that Irad is the great-grandson of Adam, or that Jabal and Jubal are the great-great-great-great-great-grandsons of Adam. (Hint: Represent the fact about Irad, for example, as ~((great grandson) Adam Irad)~. Write rules that determine if a list ends in the word ~grandson~. Use this to express a rule that allows one to derive the relationship ~((great . ?rel) ?x ?y)~, where ~?rel~ is a list ending in ~grandson~.) Check your rules on queries such as ~((great grandson) ?g ?ggs)~ and ~(?relationship Adam Irad)~.
+
+*** Solution
+
+#+begin_src scheme
+(rule (end-in-grandson (grandson)))
+(rule (end-in-grandson (?h . ?t))
+      (end-in-grandson ?t))
+(rule ((grandson) ?x ?y)
+      (grandson ?x ?y))
+(rule ((great . ?rel) ?x ?y)
+      (and (?rel ?z ?y)
+           (son ?x ?z)
+           (end-in-grandson ?rel)))
+#+end_src
+
+** Exercise 4.70
+
+What is the purpose of the ~let~ bindings in the procedures ~add-assertion!~ and ~add-rule!~? What would be wrong with the following implementation of ~add-assertion!~? Hint: Recall the definition ot the infinite stream of ones in Section 3.5.2: ~(define ones (cons-stream 1 ones))~.
+
+#+begin_src scheme
+(define (add-assertion! assertion)
+  (store-assertion-in-index assertion)
+  (set! THE-ASSERTIONS
+        (cons-stream assertion THE-ASSERTIONS))
+  'ok)
+#+end_src
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.70][sicp-ex-4.70]]
+- [[https://wizardbook.wordpress.com/2016/05/14/exercise-4-70/][Exercise 4.70]]
+
+** Exercise 4.71
+
+Louis Reasoner wonders why the ~simple-query~ and ~disjoin~ procedures (Section 4.4.4.2) are implemented using explicit ~delay~ operations, rather than being defined as follows:
+
+#+begin_src scheme
+(define (simple-query query-pattern frame-stream)
+  (stream-flatmap
+   (lambda (frame)
+     (stream-append
+      (find-assertions query-pattern frame)
+      (apply-rules query-pattern frame)))
+   frame-stream))
+(define (disjoin disjuncts frame-stream)
+  (if (empty-disjunction? disjuncts)
+      the-empty-stream
+      (interleave
+       (qeval (first-disjunct disjuncts)
+              frame-stream)
+       (disjoin (rest-disjuncts disjuncts)
+                frame-stream))))
+#+end_src
+
+Can you give examples of queries where these simpler definitions would lead to undesirable behavior?
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.71][sicp-ex-4.71]]
+- [[https://wizardbook.wordpress.com/2016/05/15/exercise-4-71/][Exercise 4.71]]
+
+** Exercise 4.72
+
+Why do ~disjoin~ and ~stream-flatmap~ interleave the streams rather than simple append them? Give examples that illustrate why interleaving works better. (Hint: Why did we use ~interleave~ in Section 3.5.3?)
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.72][sicp-ex-4.72]]
+- [[https://wizardbook.wordpress.com/2016/05/15/exercise-4-72][Exercise 4.72]]
+
+** Exercise 4.73
+
+Why does ~flatten-stream~ use ~delay~ explicitly? What would be wrong with defining it as follows:
+
+#+begin_src scheme
+(define (flatten-stream stream)
+  (if (stream-null? stream)
+      the-empty-stream
+      (interleave
+       (stream-car stream)
+       (flatten-stream (stream-cdr stream)))))
+#+end_src
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-4.73][sicp-ex-4.73]]
+- [[https://wizardbook.wordpress.com/2016/05/15/exercise-4-73][Exercise 4.73]]
+
+** Exercise 4.74
+
+Alyssa P. Hacker proposes to use a simpler version of ~stream-flatmap~ in ~negate~, ~lisp-value~, and ~find-assertions~. She observes that the procedure that is mapped over the frame stream in these cases always produces either the empty stream of a singleton stream, so no interleaving is needed when combining these streams.
+
+a. Fill in the missing expressions in Alyssa's program.
+
+   #+begin_src scheme
+(define (simple-stream-flatmap proc s)
+  (simple-flatten (stream-map proc s)))
+(define (simple-flatten stream)
+  (stream-map <??>
+              (stream-filter <??> stream)))
+   #+end_src
+
+b. Does the query system's behavior change if we change it in this way?
+
+*** Solution
+
+**** Part a
+
+#+begin_src scheme
+(define (simple-flatten stream)
+  (stream-map stream-car
+              (stream-filter (lambda (s) (not (stream-null? s))) stream)))
+#+end_src
+
+**** Part b
+
+The order of stream will not change the result.
+
+** Exercise 4.75
+
+Implement for the query language a new special form called ~unique~. ~unique~ should succeed if there is precisely one item in the data base satisfying a specified query. For example,
+
+#+begin_src scheme
+(unique (job ?x (computer wizard)))
+#+end_src
+
+should print the one-item stream
+
+#+begin_src scheme
+(unique (job (Bittdiddle Ben) (computer wizard)))
+#+end_src
+
+since Ben is the only computer wizard, and
+
+#+begin_src scheme
+(unique (job ?x (computer programmer)))
+#+end_src
+
+should print the empty stream, since there is more than one computer programmer. Moreover,
+
+#+begin_src scheme
+(and (job ?x ?j) (unique (job ?anyone ?j)))
+#+end_src
+
+should list all the jobs that are filled by only one person, and the people who fill them.
+
+There are two parts to implementing ~unique~. The first is to write a procedure that handles this special form, and the second is to make ~qeval~ dispatch to that procedure. THe second part is trivial, since ~qeval~ does its dispatching in a data-directed way. If your procedure is called ~uniquely-asserted~, all you need to do is
+
+#+begin_src scheme
+(put 'unique 'qeval uniquely-asserted)
+#+end_src
+
+and ~qeval~ will dispatch to this procedure for every query whose ~type~​(~car~) is the symbol ~unique~.
+
+The real problem is to write the procedure ~uniquely-asserted~. This should take as input the ~contents~​(~cdr~) of the ~unique~ query, together with a stream of frames. For each frame in the stream, it should use ~qeval~ to find the stream of all extensions to the frame that satisfy the given query. Any stream that does not have exactly one item in it should be eliminated. The remaining streams should be passed back to be accumulated into one big stream that is the result of the ~unique~ query. This is similar to the implementation of the ~not~ special form.
+
+Test your implementation by forming a query that lists all people who supervise precisely one person.
+
+*** Solution
+
+#+begin_src scheme
+(define (uniquely-asserted query frame-stream)
+  (stream-flatmap
+   (lambda (frame)
+     (let ((stream (qeval (car query)
+                          (singleton-stream frame))))
+       (if (and (not (stream-null? stream))
+                (stream-null? (stream-cdr stream)))
+           stream
+           the-empty-stream)))
+   frame-stream))
+#+end_src
+
+** Exercise 4.76
+
+Our implementation of ~and~ as a series combination of queries ([[https://sarabander.github.io/sicp/html/4_002e4.xhtml#Figure-4_002e5][Figure 4.5]]) is elegant, but it is inefficient because in processing the second query of the ~and~ we must scan the data base for each frame produced by the first query. If the data base has /n/ elements, and a typical query produces a number of output frames proportional to /n/ (say $n/k$), then scanning the data base for each frame produced by the first query will require $n^2/k$ calls to the pattern matcher. Another approach would be to process the two clauses of the ~and~ separately, then look for all pairs of output frames that are compatible. If each query produces $n/k$ output frames, then this means that we must perform $n^2/k^2$ compatibility checks--a factor of /k/ fewer than the number of matches required in our current method.
+
+Devise an implementation of ~and~ that uses this strategy. You must implement a procedure that takes two frames as inputs, checks whether the bindings in the frames are compatible, and, if so, produces a frame that merges the two sets of bindings. This operation is similar to unification.
+
+*** Solution
+
+#+begin_src scheme
+(define (new-conjoin conjuncts frame-stream)
+  (if (empty-conjunction? conjuncts)
+      frame-stream
+      (merge-frames (qeval (first-conjunct conjuncts) frame-stream)
+                    (new-conjoin (rest-conjuncts conjuncts) frame-stream))))
+(put 'new-and 'qeval new-conjoin)
+(define (merge-frames frames1 frames2)
+  (cond ((stream-null? frames1) frames2)
+        ((stream-null? frames2) frames1)
+        (else
+         (stream-flatmap
+          (lambda (frame1)
+            (stream-flatmap
+             (lambda (frame2)
+               (merge-frame frame1 frame2))
+             frames2))
+          frames1))))
+(define (merge-frame frame1 frame2)
+  (if (null? frame1)
+      (singleton-stream frame2)
+      (let ((binding1 (car frame1)))
+        (let ((binding2 (assoc (car binding1) frame2)))
+          (if binding2
+              (if (equal? (cdr binding1) (cdr binding2))
+                  (merge-frame (cdr frame1) frame2)
+                  the-empty-stream)
+              (merge-frame (cdr frame1) (cons binding1 frame2)))))))
+#+end_src
+
+** Exercise 4.77
+
+In Section 4.4.3 we saw that ~not~ and ~lisp-value~ can cause the query language to give "wrong" answers if these filtering operations are applied to frames in which variables are unbound. Devise a way to fix this shortcoming. One idea is to perform the filtering in a "delayed" manner by appending to the frame a "promise" to filter that is fulfilled only when enough variables have been bound to make the operation possible. We could wait to perform filtering until all other operations have been performed. However, for efficiency's sake, we would like to perform filtering as soon as possible so as to cut down on the number of intermediate frames generated.
+
+*** Solution
+
+[[http://community.schemewiki.org/?sicp-ex-4.77][sicp-ex-4.77]]
+
+** Exercise 4.78
+
+Redesign the query language as a nondeterministic program to be implemented using the evaluator of Section 4.3, rather than as a stream process. In this approach, each query will produce a single answer (rather than the stream of all answers) and the user can type ~try-again~ to see more answers. You should find that much of the mechanism we built in this section is subsumed by nondeterministic search and backtracking. You will probably also find, however, that your new query language has subtle differences in behavior from the one implemented here. Can you find examples that illustrate this difference?
+
+*** Solution
+
+[[http://community.schemewiki.org/?sicp-ex-4.78][sicp-ex-4.78]]
+
+** Exercise 4.79
+
+When we implemented the Lisp evaluator in Section 4.1, we saw how to use local environments to avoid name conflicts between the parameters of procedures. For example, in evaluating
+
+#+begin_src scheme
+(define (square x) (* x x))
+(define (sum-of-squares x y)
+  (+ (square x) (square y)))
+(sum-of-squares 3 4)
+#+end_src
+
+there is no confusion between the ~x~ in ~square~ and the ~x~ in ~sum-of-squares~, because we evaluate the body of each procedure in an environment that is specially constructed to contain bindings for the local variables. In the query system, we used a different strategy to avoid name conflicts in applying rules. Each time we apply a rule we rename the variables with new names that are guaranteed to be unique. The analogous strategy for the Lisp evaluator would be to do away with local environments and simply rename the variables in the body of a procedure each time we apply the procedure.
+
+Implement for the query language a rule-application method that uses environments rather than renaming. See if you can build on your environment structure to create constructs in the query language for dealing with large systems, such as the rule analog of block-structured procedures. Can you relate any of this to the problem of making deductions in a context (e.g., "If I supposed that /P/ were true, then I would be able to deduce /A/ and /B/.") as a method of problem solving? (This problem is open-ended. A good answer is probably worth a Ph.D.)
+
+*** Solution
+
+[[http://community.schemewiki.org/?sicp-ex-4.79][sicp-ex-4.79]]

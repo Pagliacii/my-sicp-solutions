@@ -1,0 +1,23 @@
+#+title:     References for SICP exercises
+#+author:    Jason Huang
+#+email:     huangmianrui0310@outlook.com
+#+date:      <2021-04-08 Thu>
+
+#+description:  References for all SICP exercises
+#+keywords:     sicp, exercises, references
+#+language:     en
+#+startup:      content
+#+exclude_tags: noexport
+
+* References
+
+- <<ref:4>> *Borodin*, Alan, and Ian Munro. =1975=. /The computational Complexity of Algebraic and Numeric Problems/. New York: American Elsevier.
+- <<Gabriel 1988>> *Gabriel*, Richard P. =1988=. The Why of /Y. Lisp Pointers/ =2(2): 15-25=. [[https://dreamsongs.com/Files/WhyOfY.pdf][->]]
+- <<ref:1>> *Kaldewaij*, Anne. =1990=. /Programming: The Derivation of Algorithms/. New York: Prentice-Hall.
+- <<ref:2>> *Knuth*, Donald E. =1973=. /Fundamental Algorithms/. Volume 1 of /The Art of Computer Programming/. 2nd edition. Reading, MA: Addison-Wesley.
+- <<ref:3>> *Knuth*, Donald E. =1981=. /Seminumerical Algorithms/. Volume 2 of /The Art of Computer Programming/. 2nd edition. Reading, MA: Addison-Wesley.
+- <<Miller 1976>> *Miller*, Gary L. =1976=. Riemann's Hypothesis and tests for primality. /Journal of Computer and System Sciences/ 13(3): 300-317. [[https://www.cs.cmu.edu/~glmiller/Publications/b2hd-Mi76.html][->]]
+- <<Phillips 1934>> *Phillips*, Hubert. =1934=. /The Sphinx Problem Book/. London: Faber and Faber
+- <<Rabin 1980>> *Rabin*, Michael O. =1980=. Probabilistic algorithm for testing primality. /Journal of Number Theory/ 12: 128-138.
+- <<Stoy 1977>> *Stoy*, Joseph E. =1977=. /Denotational Semantics/. Cambridge, =MA: MIT= Press.
+- <<Winston 1992>> *Winston*, Patrick. =1922=. /Artificial Intelligence/. =3rd= edition. Reading, =MA:= Addison-Wesley.

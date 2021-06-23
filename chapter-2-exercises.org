@@ -1,0 +1,4950 @@
+#+title:     Exercises in SICP Chapter 2
+#+author:    Jason Huang
+#+email:     huangmianrui0310@outlook.com
+#+date:      <2021-04-08 Thu>
+
+#+description:  Exercises and solutions in SICP chapter 2
+#+keywords:     sicp, exercises, solutions, lisp, scheme
+#+language:     en
+#+startup:      content
+#+exclude_tags: noexport
+
+#+LATEX_HEADER: \usepackage{tikz}
+#+PROPERTY: header-args:latex :headers '("\\usepackage{tikz}") :fit yes :imagemagick yes :iminoptions -density 300 :imoutoptions
+#+OPTIONS: tex:imagemagick
+
+* Chapter 2 Building Abstractions with Data
+:PROPERTIES:
+:header-args:scheme: :noweb yes :results output
+:END:
+
+** Footnotes :noexport:
+
+<<Footnote 12>> Scheme standardly provides a ~map~ procedure that is more general than the one described here. This more general ~map~ takes a procedure of ~n~ arguments, together with ~n~ lists, and applies the procedure to all the first elements of the lists, all the second elements of the lists, and so on, returning a list of the results. For example:
+
+#+begin_src scheme
+(map + (list 1 2 3) (list (40 50 60) (list 700 800 900)))
+(741 852 963)
+(map (lambda (x y) (+ x (* 2 y)))
+     (list 1 2 3)
+     (list 4 5 6))
+(9 12 15)
+#+end_src
+
+[fn:7] To define ~f~ and ~g~ using ~lambda~ we would write
+
+#+begin_src scheme
+(define f (lambda (x y . z) <body>))
+(define g (lambda w <body>))
+#+end_src
+
+[fn:8] According to [[file:references.org::ref:3][Knuth 1981]], this rule was formulated by W. G. Horner early in the nineteenth century, but the method was actually used by Newton over a hundred years earlier. Horner's rule evaluates the polynomial using fewer additions and multiplications than does the straightforward method of first computing $a_nx^n$, then adding $a_{n-1}x^{n-1}$, and so on. In fact, it is possible to prove that any algorithm for evaluating arbitrary polynomials must use at least as many additions and multiplications as does Horner's rule, and thus Horner's rule is an optimal algorithm for polynomial evaluation. This was proved (for the number of additions) by A. M. Ostrowski in a 1954 paper that essentially founded the modern study of optimal algorithms. The analogous statement for multiplications was proved by V. Y. Pan in 1966. The book by [[file:references.org::ref:4][Borodin and Munro (1975)]] provides an overview of these and other results about optimal algorithms.
+
+[fn:9] This definition uses the extended version of ~map~ described in [[Footnote 12]].
+
+[fn:10] In practice, programmers use ~equal?~ to compare lists that contain numbers as well as symbols. Numbers are not considered to be symbols. The question of whether two numerically equal numbers (as tested by ~=~) are also ~eq?~ is highly implementation-dependent. A better definition of ~equal?~ (such as the one that comes as a primitive in Scheme) would also stipulate that if ~a~ and ~b~ are both numbers, then ~a~ and ~b~ are ~equal?~ if they are numerically equal.
+
+[fn:11] A real number can be projected to an integer using the ~round~ primitive, which returns the closest integer to its argument.
+
+[fn:12] In an implementation like $\textrm{MIT}$ Scheme, this produces a polynomial that is indeed a divisor of $Q_1$ and $Q_2$, but with rational coefficients. In many other Scheme systems, in which division of integers can produce limited-precision decimal numbers, we may fail to get a valid divisor.
+
+** Exercise 2.1
+Define a better version of ~make-rat~ that handles both positive and negative arguments. ~make-rat~ should normalize the sign so that if the rational number is positive, both the numerator and denominator are positive, and if the rational number is negative, only the numerator is negative.
+
+*** Solution
+
+#+name: better-make-rat
+#+begin_src scheme :exports none
+(define (make-rat n d)
+  (let ((g (gcd n d))
+        (denom-sign (if (> d 0) 1 (- 1))))
+    (cons (* (/ n g) denom-sign)
+          (* (/ d g) denom-sign))))
+#+end_src
+
+#+name: solution2.1
+#+begin_src scheme
+<<better-make-rat>>
+(define (numer x) (car x))
+(define (denom x) (cdr x))
+(define (print-rat x)
+  (display (numer x))
+  (display "/")
+  (display (denom x))
+  (newline))
+
+(print-rat (make-rat 2 -4))
+(print-rat (make-rat -2 4))
+#+end_src
+
+#+RESULTS: solution2.1
+: -1/2
+: -1/2
+
+** Exercise 2.2
+
+Consider the problem of representing line segments in a plane. Each segment is represented as a pair of points: a starting point and an ending point. Define a constructor ~make-segment~ and selectors ~start-segment~ and ~end-segment~ that define the representation of segments in terms of points. Furthermore, a point can be represented as a pair of numbers: the /x/ coordinate and the /y/ coordinate. Accordingly, specify a constructor ~make-point~ and selectors ~x-point~ and ~y-point~ that define this representation. Finally, using your selectors and constructors, define a procedure ~midpoint-segment~ that takes a line segment as argument and returns its midpoint (that point whose coordinates are the average of the coordinates of the endpoints). To try your procedures, you'll need a way to print points:
+
+#+name: print-point
+#+begin_src scheme
+(define (print-point p)
+  (newline)
+  (display "(")
+  (display (x-point p))
+  (display ",")
+  (display (y-point p))
+  (display ")"))
+#+end_src
+
+*** Solution
+
+#+name: segment-constructor-selectors
+#+begin_src scheme :exports none
+(define (make-segment p1 p2) (cons p1 p2))
+(define (start-segment s) (car s))
+(define (end-segment s) (cdr s))
+#+end_src
+
+#+name: print-segment
+#+begin_src scheme :exports none
+(define (print-segment seg)
+  (let ((s (start-segment seg))
+        (e (end-segment seg)))
+    (newline)
+    (display (format "[(~a,~a),(~a,~a)]"
+                     (x-point s) (y-point s)
+                     (x-point e) (y-point e)))))
+#+end_src
+
+#+name: point-constructor-selectors
+#+begin_src scheme :exports none
+(define (make-point x y) (cons x y))
+(define (x-point p) (car p))
+(define (y-point p) (cdr p))
+#+end_src
+
+#+name: midpoint-segment
+#+begin_src scheme :exports none
+(define (midpoint-segment s)
+  (define (average a b) (/ (+ a b) 2.0))
+  (let ((start (start-segment s))
+        (end (end-segment s)))
+    (make-point (average (x-point start) (x-point end))
+                (average (y-point start) (y-point end)))))
+#+end_src
+
+#+name: test-solution-2.2
+#+begin_src scheme
+<<segment-constructor-selectors>>
+<<point-constructor-selectors>>
+<<midpoint-segment>>
+<<print-point>>
+<<print-segment>>
+(print-point (make-point 2 3))
+(define s (make-segment (make-point 0 0)
+                        (make-point 2 3)))
+(print-segment s)
+(print-point (midpoint-segment s))
+#+end_src
+
+#+RESULTS: test-solution-2.2
+:
+: (2,3)
+: [(0,0),(2,3)]
+: (1.0,1.5)
+
+** Exercise 2.3
+
+Implement a representation for rectangles in a plane.(Hint: You may want to make use of [[*Exercise 2.2][Exercise 2.2]].) In terms of your constructors and selectors, create procedures that compute the perimeter and the area of a given rectangle. Now implement a different representation for rectangles. Can you design your system with suitable abstraction barriers, so that the same perimeter and area procedures will work using either representation?
+
+*** Solution
+
+**** First representation for rectangles
+
+#+name: rectangle-constructor-selectors-a
+#+begin_src scheme :exports none
+(define (make-rectangle left top width height angle)
+  (cons (make-point left top)
+        (cons (cons width height)
+              angle)))
+(define (rec-origin r) (car r))
+(define (rec-width r) (car (car (cdr r))))
+(define (rec-height r) (cdr (car (cdr r))))
+(define (rec-angle r) (cdr (cdr r)))
+#+end_src
+
+#+name: perimeter-area-rectangle
+#+begin_src scheme :exports none
+(define (perimeter r)
+  (* (+ (rec-width r) (rec-height r)) 2))
+(define (area r)
+  (* (rec-width r) (rec-height r)))
+#+end_src
+
+#+name: test-solution-2.3-a
+#+begin_src scheme
+<<point-constructor-selectors>>
+
+<<rectangle-constructor-selectors-a>>
+
+<<perimeter-area-rectangle>>
+
+(define r (make-rectangle 1 1 4.0 5.0 0.2))
+(display "Rectangle a: ") (newline)
+(display (format "Perimeter: ~s~n" (perimeter r)))
+(display (format "Area: ~s~n" (area r)))
+#+end_src
+
+#+RESULTS: test-solution-2.3-a
+: Rectangle a:
+: Perimeter: 18.0
+: Area: 20.0
+
+**** Second representation of rectangles
+
+#+name: rectangle-helpers
+#+begin_src scheme :exports none
+(define (distance-points p0 p1)
+  (sqrt
+   (+ (sqr (- (x-point p0) (x-point p1)))
+      (sqr (- (y-point p0) (y-point p1))))))
+
+(define (dot-product p0 p1)
+  (+ (* (x-point p0) (x-point p1))
+     (* (y-point p0) (y-point p1))))
+
+(define (vec-add v0 v1)
+  (make-point (+ (x-point v0) (x-point v1))
+              (+ (y-point v0) (y-point v1))))
+
+(define (vec-sub v0 v1)
+  (make-point (- (x-point v0) (x-point v1))
+              (- (y-point v0) (y-point v1))))
+
+(define (orthogonal? v0 v1)
+  (= 0.0 (dot-product v0 v1))) ; should it be better with an small range?
+#+end_src
+
+#+name: rectangle-constructor-selectors-b
+#+begin_src scheme :exports none
+; Constructor
+(define (make-rectangle p0 p1 p2)
+  (if (orthogonal? (vec-sub p1 p0) (vec-sub p2 p0))
+      (cons p0 (cons p1 p2))
+      (error "Points should make an rectangle.")))
+
+; Selectors
+(define (rec-height r) (distance-points (car r) (car (cdr r))))
+(define (rec-width r) (distance-points (car r) (cdr (cdr r))))
+#+end_src
+
+#+name: test-solution-2.3-b
+#+begin_src scheme
+<<point-constructor-selectors>>
+
+<<rectangle-helpers>>
+
+<<rectangle-constructor-selectors-b>>
+
+<<perimeter-area-rectangle>>
+
+(define p0 (make-point 0 0))
+(define p1 (make-point 10 -2))
+(define p2 (make-point 1 5))
+(define r (make-rectangle p0 p1 p2))
+
+(display "Rectangle b: ") (newline)
+(display (format "Perimeter: ~s~n" (perimeter r)))
+(display (format "Area: ~s~n" (area r)))
+#+end_src
+
+#+RESULTS: test-solution-2.3-b
+: Rectangle b:
+: Perimeter: 30.594117081556707
+: Area: 51.99999999999999
+
+** Exercise 2.4
+
+Here is an alternative procedural representation of pairs. For this representation, verify that ~(car (cons x y))~ yields ~x~ for any objects ~x~ and ~y~.
+
+#+begin_src scheme
+(define (cons x y)
+  (lambda (m) (m x y)))
+(define (car z)
+  (z (lambda (p q) p)))
+#+end_src
+
+What is the corresponding definition of ~cdr~? (Hint: To verify that this works, make use of the substitution model of Section 1.1.5.)
+
+*** Solution
+
+#+name: verify-cons-car
+#+begin_src scheme
+(car (cons x y))                        ;; 0
+(car (lambda (m) (m x y)))              ;; 1
+((lambda (m) (m x y)) (lambda (p q) p)) ;; 2
+((lambda (p q) p) x y)                  ;; 3
+x                                       ;; 4
+#+end_src
+
+#+name: cdr-definition
+#+begin_src scheme
+(define (cdr z)
+  (z (lambda (p q) q)))
+#+end_src
+
+** Exercise 2.5
+
+Show that we can represent pairs of nonnegative integers using only numbers and arithmetic operations if we represent the pair /a/ and /b/ as the integer that is product $2^a3^b$. Give the corresponding definitions of the procedures ~cons~, ~car~, and ~cdr~.
+
+*** Solution
+
+#+name: cons-car-cdr-definitions
+#+begin_src scheme :exports none
+(define (cons a b)
+  (* (expt 2 a) (expt 3 b)))
+
+(define (car z)
+  (define (car-iter a count)
+    (if (= (remainder a 2) 0)
+        (car-iter (/ a 2) (+ count 1))
+        count))
+  (car-iter z 0))
+
+(define (cdr z)
+  (define (cdr-iter b count)
+    (if (= (remainder b 3) 0)
+        (cdr-iter (/ b 3) (+ count 1))
+        count))
+  (cdr-iter z 0))
+#+end_src
+
+#+name: test-solution-2.5
+#+begin_src scheme
+<<cons-car-cdr-definitions>>
+
+(define z (cons 4 2))
+(display z) (newline)
+(display (car z)) (newline)
+(display (cdr z)) (newline)
+(newline)
+(define z (cons 3 4))
+(display z) (newline)
+(display (car z)) (newline)
+(display (cdr z)) (newline)
+#+end_src
+
+#+RESULTS: test-solution-2.5
+: 144
+: 4
+: 2
+:
+: 648
+: 3
+: 4
+
+** Exercise 2.6
+
+In case representing pairs as procedures wasn't mind-boggling enough, consider that, in a language that can manipulate procedures, we can get by without numbers (at least insofar as nonnegative integers are concerned) by implementing 0 and the operation of adding 1 as
+
+#+begin_src scheme
+(define zero (lambda (f) (lambda (x) x)))
+(define (add-1 n)
+  (lambda (f) (lambda (x) (f ((n f) x)))))
+#+end_src
+
+This representation is known as /Church numerals/, after its inventor, Alonzo Church, the logician who invented the \lambda-calculus.
+
+Define ~one~ and ~two~ directly (not in terms of ~zero~ and ~add-1~). (Hint: Use substitution to evaluate ~(add-1 zero)~). Give a direct definition of the addition procedure ~+~ (not in terms of repeated application of ~add-1~).
+
+*** Solution
+
+#+name: evaluate-use-substitution
+#+begin_src scheme
+(add-1 zero)                                                          ;0
+(add-1 (lambda (f) (lambda (x) x)))                                   ;1
+((lambda (f) (lambda (x) (f ((n f) x)))) (lambda (f) (lambda (x) x))) ;2
+((lambda (f) (lambda (x) (f (((lambda (f) (lambda (x) x)) f) x)))))   ;3
+((lambda (f) (lambda (x) (f ((lambda (x) x) x)))))                    ;4
+((lambda (f) (lambda (x) (f x))))                                     ;5
+#+end_src
+
+#+name: church-numerals-one
+#+begin_src scheme :exports none
+(define one (lambda (f) (lambda (x) (f x))))
+#+end_src
+
+#+name: church-numerals-two
+#+begin_src scheme :exports none
+(define two (lambda (f) (lambda (x) (f (f x)))))
+#+end_src
+
+#+name: church-numerals-add
+#+begin_src scheme :exports none
+(define (add a b)
+  (lambda (f) (lambda (x) ((a f) ((b f) x)))))
+#+end_src
+
+#+name: test-solution-2.6
+#+begin_src scheme
+<<church-numerals-one>>
+<<church-numerals-two>>
+<<church-numerals-add>>
+(define three (lambda (f) (lambda (x) (f (f (f x))))))
+
+(define (inc x) (+ x 1))
+
+(display ((one inc) 0)) (newline)
+(display ((two inc) 0)) (newline)
+(display ((three inc) 0))  (newline)
+(display (((add one two) inc) 0)) (newline)
+(display (((add three two) inc) 0)) (newline)
+#+end_src
+
+#+RESULTS: test-solution-2.6
+: 1
+: 2
+: 3
+: 3
+: 5
+
+** Exercise 2.7
+
+Alyssa's program is incomplete because she has not specified the implementation of the interval abstraction. Here is a definition of the interval constructor:
+
+#+begin_src scheme
+(define (make-interval a b) (cons a b))
+#+end_src
+
+Define selectors ~upper-bound~ and ~lower-bound~ to complete the implementation.
+
+*** Solution
+
+#+name: alyssa-constructor-selectors
+#+begin_src scheme
+(define (make-interval a b)
+  (if (< a b)
+      (cons a b)
+      (cons b a)))
+
+(define (lower-bound x) (car x))
+(define (upper-bound x) (cdr x))
+
+(define (add-interval x y)
+  (make-interval (+ (lower-bound x) (lower-bound y))
+                (+ (upper-bound x) (upper-bound y))))
+
+(define (mul-interval x y)
+  (let ((p1 (* (lower-bound x) (lower-bound y)))
+        (p2 (* (lower-bound x) (upper-bound y)))
+        (p3 (* (upper-bound x) (lower-bound y)))
+        (p4 (* (upper-bound x) (upper-bound y))))
+    (make-interval (min p1 p2 p3 p4)
+                   (max p1 p2 p3 p4))))
+
+(define (div-interval x y)
+  (mul-interval
+   x
+   (make-interval (/ 1.0 (upper-bound y))
+                  (/ 1.0 (lower-bound y)))))
+
+(define (width-interval z)
+  (/ (- (upper-bound z)
+        (lower-bound z))
+     2.0))
+
+(define (print-interval name interval)
+  (printf "~a => [~a, ~a]~n"
+          name
+          (lower-bound interval)
+          (upper-bound interval)))
+#+end_src
+
+** Exercise 2.8
+
+Using reasoning analogous to Alyssa's, describe how the difference of two intervals may be computed. Define a corresponding subtraction procedure, called ~sub-interval~.
+
+*** Solution
+
+#+name: sub-interval
+#+begin_src scheme
+(define (sub-interval x y)
+  (make-interval (- (lower-bound x)
+                    (upper-bound y))
+                 (- (upper-bound x)
+                    (lower-bound y))))
+#+end_src
+
+** Exercise 2.9
+
+The /width/ of an interval is half of the difference between its upper and lower bounds. The width is a measure of the uncertainty of the number specified by the interval. For some arithmetic operations the width of the result of combining two intervals is a function only of the widths of the argument intervals, whereas for others the width of the combination is not a function of the widths of the argument intervals. Show that the width of the sum (or difference) of two intervals is a function only of the widths of the intervals being added (or subtracted). Give examples to show that this is not true for multiplication or division.
+
+*** Solution
+
+We will use two interval $x$ and $y$. Per definition:
+
+\begin{align*}
+2\cdot x_{width}&=x_{upper}-x_{lower} \\
+2\cdot y_{width}&=y_{upper}-y_{lower}
+\end{align*}
+
+**** Addition
+
+Let's compute the bound for the sum of interval $x$ and $y$
+
+\begin{align*}
+z&=x+y \\
+z_{lower}&=x_{lower}+y_{lower} \\
+z_{upper}&=x_{upper}+y_{upper}
+\end{align*}
+
+Based on that, we can compute and simplify the width:
+
+\begin{align*}
+2\cdot z_{width}&=z_{upper}-z_{lower} \\
+&=(x_{upper}+y_{upper})-(x_{lower}+y_{lower}) \\
+&=x_{upper}-x_{lower}+y_{upper}-y_{lower} \\
+&=2\cdot x_{width}+2\cdot y_{width} \\
+z_{width}&=x_{width}+y_{width}
+\end{align*}
+
+**** Subtraction
+
+Let's compute the bound for the subtraction of interval $x$ and $y$
+
+\begin{align*}
+z&=x-y \\
+z_{lower}&=x_{lower}-y_{upper} \\
+z_{upper}&=x_{upper}-y_{lower}
+\end{align*}
+
+Based on that, we can compute and simplify the width:
+
+\begin{align*}
+2\cdot z_{width}&=z_{upper}-z_{lower} \\
+&=(x_{upper}-y_{lower})-(x_{lower}-y_{upper}) \\
+&=x_{upper}-x_{lower}+y_{upper}-y_{lower} \\
+&=2\cdot x_{width}+2\cdot y_{width} \\
+z_{width}&=x_{width}+y_{width}
+\end{align*}
+
+**** Multiplication
+
+One possible case, if all number are > 1
+
+\begin{align*}
+z_{lower}&=x_{lower}*y_{lower} \\
+z_{upper}&=x_{upper}*y_{upper} \\
+2\cdot z_{width} &= z_{upper}-z_{lower} = (x_{upper}*y_{upper})-(x_{lower}*y_{lower}) \\
+&\neq(2\cdot x_{width})*(2\cdot y_{width}) \\
+z_{width}&\neq x_{width}*y_{width}
+\end{align*}
+
+Example:
+
+#+begin_src scheme
+<<alyssa-constructor-selectors>>
+
+(define r1 (make-interval 100.0 101.0))
+(define r2 (make-interval 22.0 23.0))
+(display (format "r1 = ~a~n" (width-interval r1)))
+(display (format "r2 = ~a~n" (width-interval r2)))
+(display (format "mul = ~a~n" (width-interval (mul-interval r1 r2))))
+(display (format "div = ~a~n" (width-interval (div-interval r1 r2))))
+#+end_src
+
+#+RESULTS:
+: r1 = 0.5
+: r2 = 0.5
+: mul = 61.5
+: div = 0.12154150197628466
+
+** Exercise 2.10
+
+Ben Bitdiddle, an expert systems programmer, looks over Alyssa's shoulder and comments that it is not clear what it means to divide by an interval that spans zero. Modify Alyssa's code to check for this condition and to signal an error if it occurs.
+
+*** Solution
+
+#+name: improve-alyssa-div-interval
+#+begin_src scheme :exports none
+(define (div-interval x y)
+  (if (<= (* (lower-bound y) (upper-bound y)) 0)
+      (error "Division error (interval spans 0)" y)
+      (mul-interval
+       x
+       (make-interval (/ 1.0 (upper-bound y))
+                      (/ 1.0 (lower-bound y))))))
+#+end_src
+
+#+name: test-solution-2.10
+#+begin_src scheme
+<<alyssa-constructor-selectors>>
+
+<<improve-alyssa-div-interval>>
+
+(define x (make-interval 2 7))
+(define y (make-interval 8 3))
+(define span-0 (make-interval -1 1))
+(print-interval "x/y" (div-interval x y))
+(print-interval "x/span-0" (div-interval x span-0))
+#+end_src
+
+#+RESULTS: test-solution-2.10
+: x/y => [0.25, 2.333333333333333]
+: Division error (interval spans 0) (-1 . 1)
+:
+
+** Exercise 2.11
+
+In passing, Ben also cryptically comments: "By testing the signs of the endpoints of the intervals, it is possible to break ~mul-interval~ into nine cases, only one of which requires more than two multiplications." Rewrite this procedure using Ben's suggestion.
+
+*** Solution
+
+As we can figure out, every interval has three combinations of two endpoints. So if we calculate the production of two intervals, we should evaluate nine cases below:
+
+| No. | x0 (lower bound) | x1 (upper bound) | y0 (lower bound) | y1 (upper bound) | production                                                            |
+|-----+------------------+------------------+------------------+------------------+-----------------------------------------------------------------------|
+|   1 | non-negative     | non-negative     | non-negative     | non-negative     | ~(make-interval (* x0 y0) (* x1 y1))~                                 |
+|   2 | negative         | non-negative     | non-negative     | non-negative     | ~(make-interval (* x0 y1) (* x1 y1))~                                 |
+|   3 | negative         | negative         | non-negative     | non-negative     | ~(make-interval (* x0 y1) (* x1 y0))~                                 |
+|   4 | non-negative     | non-negative     | negative         | non-negative     | ~(make-interval (* x1 y0) (* x1 y1))~                                 |
+|   5 | negative         | non-negative     | negative         | non-negative     | ~(make-interval (min (* x0 y1) (* x1 y0)) (max (* x0 y0) (* x1 y1)))~ |
+|   6 | negative         | negative         | negative         | non-negative     | ~(make-interval (* x0 y1) (* x1 y0))~                                 |
+|   7 | non-negative     | non-negative     | negative         | negative         | ~(make-interval (* x1 y0) (* x0 y1))~                                 |
+|   8 | negative         | non-negative     | negative         | negative         | ~(make-interval (* x1 y0) (* x0 y0))~                                 |
+|   9 | negative         | negative         | negative         | negative         | ~(make-interval (* x1 y1) (* x0 y0))~                                 |
+
+#+name: mul-interval-using-bens-suggestion
+#+begin_src scheme :exports none
+(define (non-negative? n) (not (negative? n)))
+(define (mul-interval x y)
+  (let ((x0 (lower-bound x))
+        (x1 (upper-bound x))
+        (y0 (lower-bound y))
+        (y1 (upper-bound y)))
+    (cond ((non-negative? y0)
+           (cond ((non-negative? x0) (make-interval (* x0 y0) (* x1 y1)))
+                 ((non-negative? x1) (make-interval (* x0 y1) (* x1 y1)))
+                 (else (make-interval (* x0 y1) (* x1 y0)))))
+          ((non-negative? y1)
+           (cond ((non-negative? x0) (make-interval (* x1 y0) (* x1 y1)))
+                 ((non-negative? x1) (make-interval (min (* x0 y1) (* x1 y0)) (max (* x0 y0) (* x1 y1))))
+                 (else (make-interval (* x0 y1) (* x0 y0)))))
+          (else
+           (cond ((non-negative? x0) (make-interval (* x1 y0) (* x0 y1)))
+                 ((non-negative? x1) (make-interval (* x1 y0) (* x0 y0)))
+                 (else (make-interval (* x1 y1) (* x0 y0))))))))
+#+end_src
+
+#+name: test-solution-2.11
+#+begin_src scheme
+<<alyssa-constructor-selectors>>
+
+<<mul-interval-using-bens-suggestion>>
+
+(define two-positives (make-interval 1 2))
+(define negative-positive (make-interval -1 1))
+(define two-negatives (make-interval -2 -1))
+
+; Test [+, +] * [+, +]
+(print-interval "[+1, +2] * [+1, +2]" (mul-interval two-positives two-positives))
+; Test [-, +] * [+, +]
+(print-interval "[-1, +1] * [+1, +2]" (mul-interval negative-positive two-positives))
+; Test [-, -] * [+, +]
+(print-interval "[-2, -1] * [+1, +2]" (mul-interval two-negatives two-positives))
+; Test [+, +] * [-, +]
+(print-interval "[+1, +2] * [-1, +1]" (mul-interval two-positives negative-positive))
+; Test [-, +] * [-, +]
+(print-interval "[-1, +1] * [-1, +1]" (mul-interval negative-positive negative-positive))
+; Test [-, -] * [-, +]
+(print-interval "[-2, -1] * [-1, +1]" (mul-interval two-negatives negative-positive))
+; Test [+, +] * [-, -]
+(print-interval "[+1, +2] * [-2, -1]" (mul-interval two-positives two-negatives))
+; Test [-, +] * [-, -]
+(print-interval "[-1, +1] * [-2, -1]" (mul-interval negative-positive two-negatives))
+; Test [-, -] * [-, -]
+(print-interval "[-2, -1] * [-2, -1]" (mul-interval two-negatives two-negatives))
+#+end_src
+
+#+RESULTS: test-solution-2.11
+: [+1, +2] * [+1, +2] => [1, 4]
+: [-1, +1] * [+1, +2] => [-2, 2]
+: [-2, -1] * [+1, +2] => [-4, -1]
+: [+1, +2] * [-1, +1] => [-2, 2]
+: [-1, +1] * [-1, +1] => [-1, 1]
+: [-2, -1] * [-1, +1] => [-2, 2]
+: [+1, +2] * [-2, -1] => [-4, -1]
+: [-1, +1] * [-2, -1] => [-2, 2]
+: [-2, -1] * [-2, -1] => [1, 4]
+
+** Exercise 2.12
+
+After debuggin her program, Alyssa shows it to a potential user, who complains that her program solves the wrong problem. He wants a program that can deal with numbers represented as a center value and an additive tolerance; for example, he wants to work with intervals such as 3.5\pm0.15 rather [3.35, 3.65]. Alyssa returns to her desk and fixes this problem by supplying an alternate constructor and alternate selectors:
+
+#+name: alyssa-center-width-program
+#+begin_src scheme
+(define (make-center-width c w)
+  (make-interval (- c w) (+ c w)))
+(define (center i)
+  (/ (+ (lower-bound i) (upper-bound i)) 2))
+(define (width i)
+  (/ (- (upper-bound i) (lower-bound i)) 2))
+#+end_src
+
+Unfortunately, most of Alyssa's users are engineers. Real engineering situations usually involve measurements with only a small uncertainty, measured as the ratio of the width of the interval to the midpoint of the interval. Engineers usually specify percentage tolerances on the parameters of devices, as in the resistor specifications given earlier.
+
+Define a constructor ~make-center-percent~ that takes a center and a percentage tolerance and produces the desired interval. You must also define a selector ~percent~ that produces the percentage tolerance for a given interval. The ~center~ selector is the same as the one shown above.
+
+*** Solution
+
+#+name: make-center-percent
+#+begin_src scheme :exports none
+(define (make-center-percent c p)
+  (let ((width (* c (/ p 100.0))))
+    (make-interval (- c width) (+ c width))))
+
+(define (center i)
+  (/ (+ (lower-bound i) (upper-bound i)) 2))
+
+(define (width i)
+  (/ (- (upper-bound i) (lower-bound i)) 2))
+
+(define (percent i)
+  (* (/ (width i) (center i)) 100))
+
+(define (print-center-percent name i)
+  (printf "~a => ~a ± ~a%~n" name (center i) (percent i)))
+#+end_src
+
+#+name: test-solution-2.12
+#+begin_src scheme
+<<alyssa-constructor-selectors>>
+
+<<make-center-percent>>
+
+(define i (make-center-percent 10 50))
+(print-center-percent "i" i)
+#+end_src
+
+#+RESULTS: test-solution-2.12
+: i => 10.0 ± 50.0%
+
+** Exercise 2.13
+
+Show that under the assumption of small percentage tolerances there is a simple formula for the approximate percentage tolerance of the product of two intervals in terms of the tolerances of the factors. You may simplify the problem by assuming that all numbers are positive.
+
+*** Solution
+
+We can assume two intervals are $a$ and $b$. Their centers are $C_a$ and $C_b$. Tolerances are $T_a$ and $T_b$. So we have these expressions below:
+
+\begin{align*}
+a&=[C_a\cdot(1-T_a),\:C_a\cdot(1+T_a)] \\
+b&=[C_b\cdot(1-T_b),\:C_b\cdot(1+T_b)]
+\end{align*}
+
+And we also can assume all numbers are positive to simplifying the problem. Now the product of $a$ and $b$ is:
+
+\begin{align*}
+a\cdot b&=[C_a\cdot(1-T_a)\cdot C_b\cdot(1-T_b),\:C_a\cdot(1+T_a)\cdot C_b\cdot(1+T_b)] \\
+&=[C_a\cdot C_b\cdot(1-T_a-T_b+T_a\cdot T_b),\:C_a\cdot C_b\cdot(1+T_a+T_b+T_a\cdot T_b)] \\
+&=[C_a\cdot C_b\cdot\left(1-(T_a+T_b)+T_a\cdot T_b\right),\:C_a\cdot C_b\cdot\left(1+(T_a+T_b)+T_a\cdot T_b\right)]
+\end{align*}
+
+Both $T_a$ and $T_b$ are small percentage tolerances, their product will be a wee number that can be ignored. So we have a new expression now:
+
+\begin{align*}
+a\cdot b=[C_a\cdot C_b\cdot(1 - (T_a+T_b)),\:C_a\cdot C_b\cdot(1 + (T_a+T_b))]
+\end{align*}
+
+So, it appears that for small tolerances, the tolerance of the product will be approximately the sum of the component tolerances.
+
+Write an example to verify:
+
+#+name: test-solution-2.13
+#+begin_src scheme
+<<alyssa-constructor-selectors>>
+
+<<make-center-percent>>
+
+(define x (make-center-percent 16 1))
+(define y (make-center-percent 16 2))
+(printf "~a ≈ 1 + 2~n" (percent (mul-interval x y)))
+#+end_src
+
+#+RESULTS: test-solution-2.13
+: 2.9994001199760074 ≈ 1 + 2
+
+** Exercise 2.14
+
+After considerable work, Alyssa P. Hacker delivers her finished system. Several years later, after she has forgotten all about it, she gets a frenzied call from an irate user, Lem E. Tweakit. It seems that Lem has noticed that the formula for parallel resistors can be written in two algebraically equivalent ways:
+
+$$\frac{R_1R_2}{R_1+R_2}$$
+
+and
+
+$$\frac{1}{1/R_1+1/R_2}$$.
+
+He has written the following two programs, each of which computes the parallel-resistors formula differently:
+
+#+name: lem-two-programs
+#+begin_src scheme
+(define (par1 r1 r2)
+  (div-interval (mul-interval r1 r2)
+                (add-interval r1 r2)))
+
+(define (par2 r1 r2)
+  (let ((one (make-interval 1 1)))
+    (div-interval
+     one (add-interval (div-interval one r1)
+                       (div-interval one r2)))))
+#+end_src
+
+Lem complains that Alyssa's program gives different answers for the two ways of computing. This is a serious complaint.
+
+Demonstrate that Lem is right. Investigate the behavior of the system on a variety of arithmetic expressions. Make some intervals $A$ and $B$, and use them in computing the expressions $A/A$ and $A/B$. You will get the most insight by using intervals whose width is a small percentage of the center value. Examine the results of the computation in center-percent form (see [[*Exercise 2.12][Exercise 2.12]]).
+
+*** Solution
+
+#+name: test-solution-2.14
+#+begin_src scheme
+<<alyssa-constructor-selectors>>
+
+<<make-center-percent>>
+
+<<lem-two-programs>>
+
+(define A (make-center-percent 100 1))
+(define B (make-center-percent 150 2))
+
+(print-interval "A" A)
+(print-interval "B" B)
+(print-center-percent "A" A)
+(print-center-percent "B" B)
+(print-center-percent "(par1 A A)" (par1 A A))
+(print-center-percent "(par2 A A)" (par2 A A))
+(print-center-percent "(par1 A B)" (par1 A B))
+(print-center-percent "(par2 A B)" (par2 A B))
+(print-center-percent "(par1 B B)" (par1 B B))
+(print-center-percent "(par2 B B)" (par2 B B))
+(print-center-percent "A/A" (div-interval A A))
+(print-center-percent "A/B" (div-interval A B))
+(print-center-percent "B/A" (div-interval B A))
+(print-center-percent "B/B" (div-interval B B))
+#+end_src
+
+#+RESULTS: test-solution-2.14
+#+begin_example
+A => [99.0, 101.0]
+B => [147.0, 153.0]
+A => 100.0 ± 1.0%
+B => 150.0 ± 2.0%
+(par1 A A) => 50.02000200020002 ± 2.999200239928031%
+(par2 A A) => 50.0 ± 1.000000000000007%
+(par1 A B) => 60.05617438064145 ± 4.597193908142474%
+(par2 A B) => 59.99855963126561 ± 1.400072020165649%
+(par1 B B) => 75.12004801920769 ± 5.993607670795042%
+(par2 B B) => 75.0 ± 2.0%
+A/A => 1.0002000200020003 ± 1.9998000199980077%
+A/B => 0.6670668267306923 ± 2.999400119976001%
+B/A => 1.5004500450045004 ± 2.9994001199760123%
+B/B => 1.0008003201280513 ± 3.9984006397441028%
+#+end_example
+
+** Exercise 2.15
+
+Eva Lu Ator, another user, has also noticed the different intervals computed by different but algebraically equivalent expressions. She says that a formula to compute with intervals using Alyssa's system will produce tighter error bounds if it can be written in such a form that no variable that represents an uncertain number is repeated. Thus, she says, ~par2~ is a "better" program for parallel resistances than ~par1~. Is she right? Why?
+
+*** Solution
+
+Well, Eva is right. Because using more intervals during calculating, more tolerances will be introduced that caused the result will have looser error bounds. The program ~par1~ will reintroduce tolerances of ~r1~ and ~r2~ but ~par2~ not. So ~par2~ is a "better" program than ~par1~.
+
+** Exercise 2.16
+
+Explain, in general, why equivalent algebraic expressions may lead to different answers. Can you devise an interval-arithmetic package that does not have this shortcoming, or is this task impossible? (Warning: This problem is very difficult.)
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-2.14-2.15-2.16][sicp-ex-2.14-2.15-2.16]]
+- [[http://wiki.drewhess.com/wiki/SICP_exercise_2.16][SICP exercise 2.16]]
+- [[https://jots-jottings.blogspot.com/2011/09/sicp-exercise-216-ieee-interval.html][SICP Exercise 2.16: IEEE Interval Standard - P1788]]
+
+** Exercise 2.17
+
+Define a procedure ~last-pair~ that returns the list that contains only the last element of a given (nonempty) list:
+
+#+begin_src scheme
+(last-pair (list 23 72 149 34))
+(34)
+#+end_src
+
+*** Solution
+
+#+name: last-pair-procedure
+#+begin_src scheme :exports none
+(define (last-pair l)
+  (define (iter pairs last)
+    (if (null? pairs)
+        last
+        (iter (cdr pairs) (list (car pairs)))))
+  (iter l '()))
+#+end_src
+
+#+name: test-solution-2.17
+#+begin_src scheme
+<<last-pair-procedure>>
+
+(printf "~a~n" (last-pair (list 23 72 149 34)))
+(printf "~a~n" (last-pair '()))
+#+end_src
+
+#+RESULTS: test-solution-2.17
+: (34)
+: ()
+
+#+name: recursive-last-pair
+#+begin_src scheme :exports none
+(define (last-pair l)
+  (let ((remains (cdr l)))
+    (if (null? remains)
+        l
+        (last-pair remains))))
+#+end_src
+
+#+name: test-recursive-last-pair
+#+begin_src scheme
+<<recursive-last-pair>>
+
+(printf "~a~n" (last-pair (list 23 72 149 34)))
+#+end_src
+
+#+RESULTS: test-recursive-last-pair
+: (34)
+
+** Exercise 2.18
+
+Define a procedure ~reverse~ that takes a list as argument and returns a list of the same elements in reverse order:
+
+#+begin_src scheme
+(reverse (list 1 4 9 16 25))
+(25 16 9 4 1)
+#+end_src
+
+*** Solution
+
+#+name: reverse-list-procedure
+#+begin_src scheme :exports none
+(define (reverse l)
+  (define (iter items result)
+    (if (null? items)
+        result
+        (iter (cdr items) (cons (car items) result))))
+  (iter l '()))
+#+end_src
+
+#+name: test-solution-2.18
+#+begin_src scheme
+<<reverse-list-procedure>>
+
+(printf "~a~n" (reverse (list 1 4 9 16 25)))
+#+end_src
+
+#+RESULTS: test-solution-2.18
+: (25 16 9 4 1)
+
+#+name: recursive-reverse-list
+#+begin_src scheme :exports none
+(define (reverse l)
+  (if (null? l)
+      l
+      (append (reverse (cdr l)) (list (car l)))))
+#+end_src
+
+#+name: test-recursive-reverse-list
+#+begin_src scheme
+<<recursive-reverse-list>>
+
+(printf "~a~n" (reverse (list 1 4 9 16 25)))
+#+end_src
+
+#+RESULTS: test-recursive-reverse-list
+: (25 16 9 4 1)
+
+** Exercise 2.19
+
+Consider the change-counting program of Section 1.2.2. It would be nice to be able to easily change the currency used by the program, so that we could compute the number of ways to change a British pound, for example. As the program is written, the knowledge of the currency is distributed partly into the procedure ~first-denomination~ and partly into the procedure ~count-change~ (which knows that there are five kinds of U.S. coins). It would be nicer to be able to supply a list of coins to be used for making change.
+
+We want to rewrite the procedure ~cc~ so that its second argument is a list of the values of the coins to use rather than an integer specifying which coins to use. We could then have lists that defined each kind of currency:
+
+#+name: two-currency
+#+begin_src scheme
+(define us-coins (list 50 25 10 5 1))
+(define uk-coins (list 100 50 20 10 5 2 1 0.5))
+#+end_src
+
+We could then call ~cc~ as follows:
+
+#+begin_src scheme
+(cc 100 us-coins)
+292
+#+end_src
+
+To do this will require changing the program ~cc~ somewhat. It will still have the same form, but it will access its second argument differently, as follows:
+
+#+name: new-cc-program
+#+begin_src scheme
+(define (cc amount coin-values)
+  (cond ((= amount 0) 1)
+        ((or (< amount 0) (no-more? coin-values)) 0)
+        (else
+         (+ (cc amount
+                (except-first-denomination
+                 coin-values))
+            (cc (- amount
+                   (first-denomination
+                    coin-values))
+                coin-values)))))
+#+end_src
+
+Define the procedures ~first-denomination~, ~except-first-denomination~, and ~no-more?~ in terms of primitive operations on list structures. Does the order of the list ~coin-values~ affect the answer produced by ~cc~? Why or why not?
+
+*** Solution
+
+#+name: first-denomination-procedure
+#+begin_src scheme :exports none
+(define first-denomination car)
+#+end_src
+
+#+name: except-first-denomination-procedure
+#+begin_src scheme :exports none
+(define except-first-denomination cdr)
+#+end_src
+
+#+name: no-more-predicate
+#+begin_src scheme :exports none
+(define no-more? null?)
+#+end_src
+
+#+name: test-solution-2.19
+#+begin_src scheme
+<<two-currency>>
+
+<<new-cc-program>>
+
+<<new-cc-program>>
+
+<<first-denomination-procedure>>
+
+<<except-first-denomination-procedure>>
+
+<<no-more-predicate>>
+
+(printf "~a~n" (cc 100 us-coins))
+(printf "~a~n" (cc 64 uk-coins))
+(printf "~a~n" (cc 100 (list 1 5 10 25 50)))
+(printf "~a~n" (cc 100 (list 5 1 10 25 50)))
+(printf "~a~n" (cc 100 (list 5 25 1 50 10)))
+#+end_src
+
+#+RESULTS: test-solution-2.19
+: 292
+: 15962
+: 292
+: 292
+: 292
+
+The order of the list ~coin-values~ doesn't affect the answer. Because the procedure computes all possible combinations.
+
+** Exercise 2.20
+
+The procedures ~+~, ~*~, and ~list~ take arbitrary numbers of arguments. One way to define such procedures is to use ~define~ with /dotted-tail notation/. In a procedure definition, a parameter list that has a dot before the last parameter name indicates that, when the procedure is called, the initial parameters (if any) will have as values the initial arguments, as usual, but the final parameter's value will be a /list/ of any remaining arguments. For instance, given the definition
+
+#+begin_src scheme
+(define (f x y . z) <body>)
+#+end_src
+
+the procedure ~f~ can be called with two or more arguments. If we evaluate
+
+#+begin_src scheme
+(f 1 2 3 4 5 6)
+#+end_src
+
+then in the body of ~f~, ~x~ will be 1, ~y~ will be 2, and ~z~ will be the list ~(3 4 5 6)~. Given the definition
+
+#+begin_src scheme
+(define (g . w) <body>)
+#+end_src
+
+the procedure ~g~ can be called with zero or more arguments. If we evaluate
+
+#+begin_src scheme
+(g 1 2 3 4 5 6)
+#+end_src
+
+then in the body of ~g~, ~w~ will be the list ~(1 2 3 4 5 6)~.[fn:7]
+
+Use this notation to write a procedure ~same-parity~ that takes one or more integers and returns a list of all the arguments that have the same even-odd parity as the first argument. For example,
+
+#+begin_src scheme
+(same-parity 1 2 3 4 5 6 7)
+(1 3 5 7)
+(same-parity 2 3 4 5 6 7)
+(2 4 6)
+#+end_src
+
+*** Solution 2.20
+
+#+name: same-parity-procedure
+#+begin_src scheme :exports none
+(define (same-parity first . rest)
+  (let ((same? (if (even? first) even? odd?)))
+    (define (iter items result)
+      (if (null? items)
+          result
+          (iter (cdr items)
+                (append result
+                        (if (same? (car items))
+                            (list (car items)) '())))))
+    (iter rest (list first))))
+#+end_src
+
+#+name: test-solution-2.20
+#+begin_src scheme
+<<same-parity-procedure>>
+
+(printf "~a~n" (same-parity 1 2 3 4 5 6 7))
+(printf "~a~n" (same-parity 2 3 4 5 6 7))
+#+end_src
+
+#+RESULTS: test-solution-2.20
+: (1 3 5 7)
+: (2 4 6)
+
+** Exercise 2.21
+
+The procedure ~square-list~ takes a list of numbers as argument and returns a list of the squares of those numbers.
+
+#+begin_src scheme
+(square-list (list 1 2 3 4))
+(1 4 9 16)
+#+end_src
+
+Here are two different definitions of ~square-list~. Complete both of them by filling in the missing expressions:
+
+#+begin_src scheme
+(define (square-list items)
+  (if (null? items)
+      nil
+      (cons <??> <??>)))
+(define (square-list items)
+  (map <??> <??>))
+#+end_src
+
+*** Solution
+
+#+name: square-list-without-map
+#+begin_src scheme :exports none
+(define (square-list items)
+  (if (null? items)
+      nil
+      (cons ((lambda (x) (* x x)) (car items))
+            (square-list (cdr items)))))
+#+end_src
+
+#+name: square-list-with-map
+#+begin_src scheme :exports none
+(define (square-list items)
+  (map (lambda (x) (* x x)) items))
+#+end_src
+
+#+name: test-solution-2.21
+#+begin_src scheme
+(define nil '())
+<<square-list-without-map>>
+
+(printf "~a~n" (square-list (list 1 2 3 4)))
+
+<<square-list-with-map>>
+
+(printf "~a~n" (square-list (list 1 2 3 4)))
+#+end_src
+
+#+RESULTS: test-solution-2.21
+: (1 4 9 16)
+: (1 4 9 16)
+
+** Exercise 2.22
+
+Louis Reasoner tries to rewrite the first ~square-list~ procedure of [[*Exercise 2.21][Exercise 2.21]] so that it evolves an iterative process:
+
+#+begin_src scheme
+(define (square-list items)
+  (define (iter things answer)
+    (if (null? things)
+        answer
+        (iter (cdr things)
+              (cons (square (car things))
+                    anwser))))
+  (iter items nil))
+#+end_src
+
+Unfortunately, defining ~square-list~ this way produces the answer list in the reverse order of the one desired. Why?
+
+Louis then tries to fix his bug by interchanging the arguments to ~cons~:
+
+#+begin_src scheme
+(define (square-list items)
+  (define (iter things answer)
+    (if (null? things)
+        answer
+        (iter (cdr things)
+              (cons answer
+                    (square (car things))))))
+  (iter items nil))
+#+end_src
+
+This doesn't work either. Explain.
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-2.22][sicp-ex-2.22]]
+
+#+name: solution-2.22
+#+begin_example
+     +---+---+  +---+---+  +---+---+  +---+---+
+l: ->| * | *-+->| * | *-+->| * | *-+->| * | / |
+     +-+-+---+  +-+-+---+  +-+-+---+  +-+-+---+
+       |          |          |          |
+       V          V          V          V
+     +---+      +---+      +---+      +---+
+     | a |      | b |      | c |      | d |
+     +---+      +---+      +---+      +---+
+
+First version of Louis' ~square-list~ procedure
+
+      +---+---+
+(1) ->| * | / |
+      +-+-+---+
+        |
+        V
+      +---+
+      | A |
+      +---+
+
+      +---+---+  +---+---+
+(2) ->| * | *-+->| * | / |
+      +-+-+---+  +-+-+---+
+        |          |
+        V          V
+      +---+      +---+
+      | B |      | A |
+      +---+      +---+
+
+      +---+---+  +---+---+  +---+---+
+(3) ->| * | *-+->| * | *-+->| * | / |
+      +-+-+---+  +-+-+---+  +-+-+---+
+        |          |          |
+        V          V          V
+      +---+      +---+      +---+
+      | C |      | B |      | A |
+      +---+      +---+      +---+
+
+      +---+---+  +---+---+  +---+---+  +---+---+
+(4) ->| * | *-+->| * | *-+->| * | *-+->| * | / |
+      +-+-+---+  +-+-+---+  +-+-+---+  +-+-+---+
+        |          |          |          |
+        V          V          V          V
+      +---+      +---+      +---+      +---+
+      | D |      | C |      | B |      | A |
+      +---+      +---+      +---+      +---+
+
+Second version of Louis' ~square-list~ procedure
+
+      +---+---+
+(1) ->| / | * |
+      +---+-+-+
+            |
+            V
+          +---+
+          | A |
+          +---+
+
+      +---+---+
+(2) ->| * | * |
+      +-+-+-+-+
+        |   |
+        |   V
+        | +---+
+        | | B |
+        V +---+
+    +---+---+
+    | / | * |
+    +---+-+-+
+          |
+          V
+        +---+
+        | A |
+        +---+
+
+        +---+---+
+(3)   ->| * | * |
+        +-+-+-+-+
+          |   |
+          |   V
+          | +---+
+          | | C |
+          V +---+
+      +---+---+
+      | * | * |
+      +-+-+-+-+
+        |   |
+        |   V
+        | +---+
+        | | B |
+        V +---+
+    +---+---+
+    | / | * |
+    +---+-+-+
+          |
+          V
+        +---+
+        | A |
+        +---+
+
+          +---+---+
+(4)     ->| * | * |
+          +-+-+-+-+
+            |   |
+            |   V
+            | +---+
+            | | D |
+            V +---+
+        +---+---+
+        | * | * |
+        +-+-+-+-+
+          |   |
+          |   V
+          | +---+
+          | | C |
+          V +---+
+      +---+---+
+      | * | * |
+      +-+-+-+-+
+        |   |
+        |   V
+        | +---+
+        | | B |
+        V +---+
+    +---+---+
+    | / | * |
+    +---+-+-+
+          |
+          V
+        +---+
+        | A |
+        +---+
+#+end_example
+
+** Exercise 2.23
+
+The procedure ~for-each~ is similar to ~map~. It takes as arguments a procedure and a list of elements. However, rather than forming a list of the results, ~for-each~ just applies the procedure to each of the elements in turn, from left to right. The values returned by applying the procedure to the elements are not used at all--~for-each~ is used with procedures that perform an action, such as printing. For example,
+
+#+begin_src scheme
+(for-each (lambda (x)
+            (newline)
+            (display x))
+          (list 57 321 88))
+57
+321
+88
+#+end_src
+
+The value returned by the call to ~for-each~ (not illustrated above) can be something arbitrary, such as true. Give an implementation of ~for-each~.
+
+*** Solution
+
+#+name: for-each-procedure
+#+begin_src scheme
+(define (for-each f items)
+  (cond ((null? items) #t)
+        (else (f (car items))
+              (for-each f (cdr items)))))
+#+end_src
+
+#+name: test-solution-2.23
+#+begin_src scheme
+<<for-each-procedure>>
+
+(for-each (lambda (x)
+            (newline)
+            (display x))
+          (list 57 321 88))
+#+end_src
+
+#+RESULTS: test-solution-2.23
+:
+: 57
+: 321
+: 88
+
+** Exercise 2.24
+
+Suppose we evaluate the expression ~(list 1 (list 2 (list 3 4)))~. Give the result printed by the interpreter, the corresponding box-and-pointer structure, and the interpretation of this as a tree (as in [[https://sarabander.github.io/sicp/html/2_002e2.xhtml#Figure-2_002e6][Figure 2.6]]).
+
+*** Solution
+
+#+begin_src scheme
+(display (list 1 (list 2 (list 3 4))))
+#+end_src
+
+#+RESULTS:
+: (1 (2 (3 4)))
+
+#+name: box-and-pointer-notation
+#+begin_example
++---+---+  +---+---+
+| * | *-+->| * | / |
++-+-+---+  +-+-+---+
+  |          |
+  V          V
++---+      +---+---+  +---+---+
+| 1 |      | * | *-+->| * | / |
++---+      +-+-+---+  +-+-+---+
+             |          |
+             V          V
+           +---+      +---+---+  +---+---+
+           | 2 |      | * | *-+->| * | / |
+           +---+      +-+-+---+  +-+-+---+
+                        |          |
+                        V          V
+                      +---+      +---+
+                      | 3 |      | 4 |
+                      +---+      +---+
+#+end_example
+
+#+name: tree-notation
+#+begin_example
+(1 (2 (3 4)))
+     ^
+   /   \
+  1     ^ (2 (3 4))
+      /   \
+     2     ^ (3 4)
+         /   \
+        3     4
+#+end_example
+
+** Exercise 2.25
+
+Give combinations of ~car~​s and ~cdr~​s that will pick 7 from each of the following lists:
+
+#+begin_src scheme
+(1 3 (5 7) 9)
+((7))
+(1 (2 (3 (4 (5 (6 7))))))
+#+end_src
+
+*** Solution
+
+#+name: pick-seven-procedure
+#+begin_src scheme
+(define (pick-seven items)
+  (cond ((null? items) -1)
+        ((not (pair? items))
+         (if (= items 7) 7 -1))
+        ((= (pick-seven (car items)) 7) 7)
+        (else (pick-seven (cdr items)))))
+#+end_src
+
+#+name: test-solution-2.25
+#+begin_src scheme
+<<pick-seven-procedure>>
+
+(printf "~a~n" (pick-seven (list 1 3 (list 5 7) 9)))
+(printf "~a~n" (pick-seven (list (list 7))))
+(printf "~a~n" (pick-seven (list 1 (list 2 (list 3 (list 4 (list 5 (list 6 7))))))))
+#+end_src
+
+#+RESULTS: test-solution-2.25
+: 7
+: 7
+: 7
+
+#+name: solution-from-schemewiki
+#+begin_src scheme
+; create a procedure from a string (using the same format as "cadr", "caaddr", etc)
+(define (cxxr str)
+  (define (recur str lst)
+    (let ((first (string-ref str 0))
+          (rest (substring str 1)))
+      (cond ((eq? first #\a)
+             (car (recur rest lst)))
+            ((eq? first #\d)
+             (cdr (recur rest lst)))
+            ((eq? first #\r)
+             lst)
+            (else (error "Unrecognizable symbol:" str)))))
+  (lambda (lst)
+    (if (eq? (string-ref str 0) #\c)
+        (recur (substring str 1) lst)
+        (error "Unrecognizable symbol:" str))))
+
+; find an atom a in the list l and give the string representing the procedure to pick a
+(define (find a l)
+  (define (searcher l)
+    (cond ((null? l) #f)
+          ((not (pair? l))
+           (if (eq? a l)
+               ""
+               #f))
+          (else (let ((a (searcher (car l)))
+                      (d (searcher (cdr l))))
+                  (cond (a (string-append a "a"))
+                        (d (string-append d "d"))
+                        (else #f))))))
+  (string-append "c" (searcher l) "r"))
+#+end_src
+
+#+name: test-solution-from-schemewiki
+#+begin_src scheme
+<<solution-from-schemewiki>>
+
+(display ((cxxr (find 7 '(1 3 (5 7) 9))) '(1 3 (5 7) 9)))
+#+end_src
+
+#+RESULTS: test-solution-from-schemewiki
+: 7
+
+** Exercise 2.26
+
+Suppose we define ~x~ and ~y~ to be two lists:
+
+#+begin_src scheme
+(define x (list 1 2 3))
+(define y (list 4 5 6))
+#+end_src
+
+What result is printed by the interpreter in response to evaluating each of the following expressions:
+
+#+begin_src scheme
+(append x y)
+(cons x y)
+(list x y)
+#+end_src
+
+*** Solution
+
+#+name: solution-2.26
+#+begin_src scheme
+(1 2 3 4 5 6)
+((1 2 3) 4 5 6)
+((1 2 3) (4 5 6))
+#+end_src
+
+#+name: solution-2.26-diagram
+#+begin_example
+(1) Appending one list to another
+
+  x                                y
+  +---+---+  +---+---+  +---+---+  +---+---+  +---+---+  +---+---+
+->| * | *-+->| * | *-+->| * | *-+->| * | *-+->| * | *-+->| * | / |
+  +-+-+---+  +-+-+---+  +-+-+---+  +-+-+---+  +-+-+---+  +-+-+---+
+    |          |          |          |          |          |
+    V          V          V          V          V          V
+  +---+      +---+      +---+      +---+      +---+      +---+
+  | 1 |      | 2 |      | 3 |      | 4 |      | 5 |      | 6 |
+  +---+      +---+      +---+      +---+      +---+      +---+
+
+(2) Cons x onto y
+             y
+  +---+---+  +---+---+  +---+---+  +---+---+
+->| * | *-+->| * | *-+->| * | *-+->| * | / |
+  +-+-+---+  +-+-+---+  +-+-+---+  +-+-+---+
+    |          |          |          |
+    |          V          V          V
+    |        +---+      +---+      +---+
+    |        | 4 |      | 5 |      | 6 |
+  x V        +---+      +---+      +---+
+  +---+---+  +---+---+  +---+---+
+  | * | *-+->| * | *-+->| * | / |
+  +-+-+---+  +-+-+---+  +-+-+---+
+    |          |          |
+    V          V          V
+  +---+      +---+      +---+
+  | 1 |      | 2 |      | 3 |
+  +---+      +---+      +---+
+
+(3) Combine x and y
+
+  +---+---+                        +---+---+
+->| * | *-+----------------------->| * | / |
+  +-+-+---+                        +-+-+---+
+    |                                |
+  x V                              y V
+  +---+---+  +---+---+  +---+---+  +---+---+  +---+---+  +---+---+
+  | * | *-+->| * | *-+->| * | / |  | * | *-+->| * | *-+->| * | / |
+  +-+-+---+  +-+-+---+  +-+-+---+  +-+-+---+  +-+-+---+  +-+-+---+
+    |          |          |          |          |          |
+    V          V          V          V          V          V
+  +---+      +---+      +---+      +---+      +---+      +---+
+  | 1 |      | 2 |      | 3 |      | 4 |      | 5 |      | 6 |
+  +---+      +---+      +---+      +---+      +---+      +---+
+#+end_example
+
+** Exercise 2.27
+
+Modify your ~reverse~ procedure of [[*Exercise 2.18][Exercise 2.18]] to produce a ~deep-reverse~ procedure that takes a list as argument and returns as its value the list with its elements reversed and with all sublists deep-reversed as well. For example,
+
+#+begin_src scheme
+(define x (list (list 1 2) (list 3 4)))
+x
+((1 2) (3 4))
+(reverse x)
+((3 4) (1 2))
+(deep-reverse x)
+((4 3) (2 1))
+#+end_src
+
+*** Solution
+
+#+name: deep-reverse-procedure
+#+begin_src scheme
+(define (deep-reverse items)
+  (cond ((null? items) items)
+        (else
+         (map (lambda (x) (if (pair? x) (deep-reverse x) x)) (reverse items)))))
+#+end_src
+
+#+name: test-solution-2.27
+#+begin_src scheme
+<<reverse-list-procedure>>
+
+<<deep-reverse-procedure>>
+
+(define x '((1 2) (3 4)))
+(define y '((1 2) ((3 4) ((5 6) (7 8)))))
+(define z '((1 2) (3 (4 5)) ((2 3) 3)))
+
+(printf "~a~n" (deep-reverse x))
+(printf "~a~n" (deep-reverse y))
+(printf "~a~n" (deep-reverse z))
+#+end_src
+
+#+RESULTS: test-solution-2.27
+: ((4 3) (2 1))
+: ((((8 7) (6 5)) (4 3)) (2 1))
+: ((3 (3 2)) ((5 4) 3) (2 1))
+
+** Exercise 2.28
+
+Write a procedure ~fringe~ that takes as argument as tree (represented as a list) and returns a list whose elements are all the leaves of the tree arranged in left-to-right order. For example,
+
+#+begin_src scheme
+(define x (list (list 1 2) (list 3 4)))
+(fringe x)
+(1 2 3 4)
+(fringe (list x x))
+(1 2 3 4 1 2 3 4)
+#+end_src
+
+*** Solution
+
+#+name: fringe-procedure
+#+begin_src scheme
+(define (fringe tree)
+  (define nil '())
+  (define (iter subtree result)
+    (if (null? subtree)
+        result
+        (let ((first (car subtree))
+              (res (cdr subtree)))
+          (if (pair? first)
+              (append (iter first result) (iter res result))
+              (cons first (iter res result))))))
+  (iter tree nil))
+#+end_src
+
+#+name: test-solution-2.28
+#+begin_src scheme
+<<fringe-procedure>>
+
+(define x '((1 2) (3 4)))
+(printf "~a~n" (fringe x))
+(printf "~a~n" (fringe (list x x)))
+#+end_src
+
+#+RESULTS: test-solution-2.28
+: (1 2 3 4)
+: (1 2 3 4 1 2 3 4)
+
+#+name: recursive-fringe-procedure
+#+begin_src scheme
+(define (fringe tree)
+  (define nil '())
+  (if (null? tree)
+      nil
+      (if (pair? tree)
+          (append (fringe (car tree)) (fringe (cdr tree)))
+          (list tree))))
+#+end_src
+
+#+name: test-recursive-fringe-procedure
+#+begin_src scheme
+<<recursive-fringe-procedure>>
+
+(define x '((1 2) (3 4)))
+(printf "~a~n" (fringe x))
+(printf "~a~n" (fringe (list x x)))
+#+end_src
+
+#+RESULTS: test-recursive-fringe-procedure
+: (1 2 3 4)
+: (1 2 3 4 1 2 3 4)
+
+** Exercise 2.29
+
+A binary mobile consists of two branches, a left branch and a right branch. Each branch is a rod of a certain length, from which hangs either a weight or another binary mobile. We can represent a binary mobile using compound data by constructing it from two branches (for example, using ~list~):
+
+#+name: make-mobile-based-on-list
+#+begin_src scheme
+(define (make-mobile left right)
+  (list left right))
+#+end_src
+
+A branch is constructed from a ~length~ (which must be a number) together with a ~structure~, which may be either a number (representing a simple weight) or another mobile:
+
+#+name: make-branch-based-on-list
+#+begin_src scheme
+(define (make-branch length structure)
+  (list length structure))
+#+end_src
+
+a. Write the corresponding selectors ~left-branch~ and ~right-branch~, which return the branches of a mobile, and ~branch-length~ and ~branch-structure~, which return the components of a branch.
+b. Using your selectors, define a procedure ~total-weight~ that returns the total weight of a mobile.
+c. A mobile is said to be ~balanced~ if the torque applied by its top-left branch is equal to that applied by its top-right branch (that is, if the length of the left rod multiplied by the weight hanging from that rod is equal to the corresponding product for the right side) and if each of the submobiles hanging off its branches is balanced. Design a predicate that tests whether a binary mobile is balanced.
+d. Suppose we change the representation of mobiles so that the constructors are
+
+   #+name: constructors-based-on-cons
+   #+begin_src scheme
+(define (make-mobile left right) (cons left right))
+(define (make-branch length structure)
+  (cons length structure))
+   #+end_src
+
+   How much do you need to change your programs to convert to the new representation?
+
+*** Solution
+
+**** Selectors
+
+#+name: mobile-branch-diagram
+#+begin_example
+  left                  right
+  +---+---+             +---+---+
+->| * | *-+------------>| * | / |
+  +-+-+---+             +-+-+---+
+    |                     |
+    V length structure    V length structure
+  +---+---+  +---+---+  +---+---+  +---+---+
+  | * | *-+->| * | / |  | * | *-+->| * | / |
+  +-+-+---+  +-+-+---+  +-+-+---+  +-+-+---+
+    |          |          |          |
+    V          V          V          V
+  +---+      +---+      +---+      +---+
+  | l |      | s |      | l |      | s |
+  +---+      +---+      +---+      +---+
+#+end_example
+
+#+name: mobile-branch-selectors
+#+begin_src scheme
+(define (left-branch m) (car m))
+(define (right-branch m) (car (cdr m)))
+(define (branch-length b) (car b))
+(define (branch-structure b) (car (cdr b)))
+#+end_src
+
+**** Total weight of a mobile
+
+#+name: total-weight-procedure
+#+begin_src scheme
+(define (total-weight m)
+  (define (branch-weight b)
+    (if (null? b)
+        0
+        (let ((st (branch-structure b)))
+          (if (pair? st) (total-weight st) st))))
+  (if (null? m)
+      0
+      (+ (branch-weight (left-branch m))
+         (branch-weight (right-branch m)))))
+#+end_src
+
+#+name: test-total-weight-procedure
+#+begin_src scheme
+<<make-mobile-based-on-list>>
+
+<<make-branch-based-on-list>>
+
+<<mobile-branch-selectors>>
+
+<<total-weight-procedure>>
+
+(define m (make-mobile
+           (make-branch 1 (make-mobile
+                           (make-branch 3 15)
+                           (make-branch 4 20)))
+           (make-branch 2 (make-mobile
+                           (make-branch 5 (make-mobile
+                                           (make-branch 6 25)
+                                           (make-branch 7 30)))
+                           (make-branch 8 10)))))
+
+(printf "~a~n" (total-weight m))
+#+end_src
+
+#+RESULTS: test-total-weight-procedure
+: 100
+
+**** Balanced binary mobile
+
+#+name: balanced-mobile-predicate
+#+begin_src scheme
+(define (balanced? m)
+  (define (torque b)
+    (let ((len (branch-length b))
+          (st (branch-structure b)))
+      (* len ((if (pair? st) total-weight identity) st))))
+  (if (not (pair? m))
+      #t
+      (let ((left (left-branch m))
+            (right (right-branch m)))
+        (if (= (torque left) (torque right))
+            (and (balanced? (branch-structure left))
+                 (balanced? (branch-structure right)))
+            #f))))
+#+end_src
+
+#+name: test-balanced-predicate
+#+begin_src scheme
+<<make-mobile-based-on-list>>
+
+<<make-branch-based-on-list>>
+
+<<mobile-branch-selectors>>
+
+<<total-weight-procedure>>
+
+<<balanced-mobile-predicate>>
+
+(define (test-balanced m)
+  (printf "~a~n" (if (balanced? m) "Yes" "No")))
+
+(test-balanced (make-mobile
+                (make-branch 1 2)
+                (make-branch 2 1)))
+(test-balanced (make-mobile
+                (make-branch 1 (make-mobile
+                                (make-branch 2 3)
+                                (make-branch 4 5)))
+                (make-branch 5 (make-mobile
+                                (make-branch 4 3)
+                                (make-branch 2 1)))))
+#+end_src
+
+#+RESULTS: test-balanced-predicate
+: Yes
+: No
+
+**** New representation
+
+#+name: new-selectors
+#+begin_example
+             right      structure
+  +---+---+  +---+---+  +---+
+->| * | *-+->| * | *-+->| s |
+  +-+-+---+  +-+-+---+  +---+
+    |          |
+    |          V length
+    |        +---+
+    |        | l |
+    V left   +---+
+  +---+---+  +---+ structure
+  | * | *-+->| s |
+  +-+-+---+  +---+
+    |
+    V length
+  +---+
+  | l |
+  +---+
+#+end_example
+
+
+#+name: selectors-new-representation
+#+begin_src scheme
+(define (right-branch m) (cdr m))
+(define (branch-structure b) (cdr b))
+#+end_src
+
+#+name: test-new-selectors
+#+begin_src scheme
+<<constructors-based-on-cons>>
+
+<<mobile-branch-selectors>>
+
+<<total-weight-procedure>>
+
+<<selectors-new-representation>>
+
+(define m (make-mobile
+           (make-branch 1 (make-mobile
+                           (make-branch 3 15)
+                           (make-branch 4 20)))
+           (make-branch 2 (make-mobile
+                           (make-branch 5 (make-mobile
+                                           (make-branch 6 25)
+                                           (make-branch 7 30)))
+                           (make-branch 8 10)))))
+
+(printf "~a~n" (total-weight m))
+#+end_src
+
+#+RESULTS: test-new-selectors
+: 100
+
+** Exercise 2.30
+
+Define a procedure ~square-tree~ analogous to the ~square-list~ procedure of [[*Exercise 2.21][Exercise 2.21]]. That is, ~square-tree~ should behave as follows:
+
+#+begin_src scheme
+(square-tree
+ (list 1
+       (list 2 (list 3 4) 5)
+       (list 6 7)))
+(1 (4 (9 16) 25) (36 49))
+#+end_src
+
+Define ~square-tree~ both directly (i.e., without using any higher-order procedures) and also by using ~map~ and recursion.
+
+*** Solution
+
+#+name: square-tree-directly
+#+begin_src scheme
+(define (square-tree tree)
+  (define nil '())
+  (define (square x) (* x x))
+  (cond ((null? tree) nil)
+        ((not (pair? tree)) (square tree))
+        (else (cons (square-tree (car tree))
+                    (square-tree (cdr tree))))))
+#+end_src
+
+#+name: test-square-tree
+#+begin_src scheme
+<<square-tree-directly>>
+
+(display (square-tree
+          (list 1
+                (list 2 (list 3 4) 5)
+                (list 6 7))))
+#+end_src
+
+#+RESULTS: test-square-tree
+: (1 (4 (9 16) 25) (36 49))
+
+#+name: square-tree-with-map
+#+begin_src scheme
+(define (square-tree tree)
+  (define nil '())
+  (define (square x) (* x x))
+  (map (lambda (sub-tree)
+         (if (pair? sub-tree)
+             (square-tree sub-tree)
+             (square sub-tree)))
+       tree))
+#+end_src
+
+#+name: test-square-tree-with-map
+#+begin_src scheme
+<<square-tree-with-map>>
+
+(display (square-tree
+          (list 1
+                (list 2 (list 3 4) 5)
+                (list 6 7))))
+#+end_src
+
+#+RESULTS: test-square-tree-with-map
+: (1 (4 (9 16) 25) (36 49))
+
+** Exercise 2.31
+
+Abstract your answer to [[*Exercise 2.30][Exercise 2.30]] to produce a procedure ~tree-map~ with the property that ~square-tree~ could be defined as
+
+#+name: square-tree-with-tree-map
+#+begin_src scheme
+(define (square-tree tree) (tree-map square tree))
+#+end_src
+
+*** Solution
+
+#+name: tree-map-directly
+#+begin_src scheme
+(define (tree-map proc tree)
+  (define nil '())
+  (cond ((null? tree) nil)
+        ((not (pair? tree)) (proc tree))
+        (else (cons (tree-map proc (car tree))
+                    (tree-map proc (cdr tree))))))
+#+end_src
+
+#+name: test-tree-map
+#+begin_src scheme
+<<tree-map-directly>>
+
+<<square-tree-with-tree-map>>
+
+(define (square x) (* x x))
+
+(display (square-tree
+          (list 1
+                (list 2 (list 3 4) 5)
+                (list 6 7))))
+#+end_src
+
+#+RESULTS: test-tree-map
+: (1 (4 (9 16) 25) (36 49))
+
+#+name: tree-map-with-map
+#+begin_src scheme
+(define (tree-map proc tree)
+  (map (lambda (sub-tree)
+         (if (pair? sub-tree)
+             (tree-map proc sub-tree)
+             (proc sub-tree)))
+       tree))
+#+end_src
+
+#+name: test-tree-map-with-map
+#+begin_src scheme
+<<tree-map-with-map>>
+
+<<square-tree-with-tree-map>>
+
+(define (square x) (* x x))
+
+(display (square-tree
+          (list 1
+                (list 2 (list 3 4) 5)
+                (list 6 7))))
+#+end_src
+
+#+RESULTS: test-tree-map-with-map
+: (1 (4 (9 16) 25) (36 49))
+
+** Exercise 2.32
+
+We can represent a set as a list of distinct elements, and we can represent the set of all subsets of the set as a list of lists. For example, if the set is ~(1 2 3)~, then the set of all subsets is ~(() (3) (2) (2 3) (1) (1 3) (1 2) (1 2 3))~. Complete the following definition of a procedure that generates the set of subsets of a set and give a clear explanation of why it works:
+
+#+begin_src scheme
+(define (subsets s)
+  (if (null? s)
+      (list nil)
+      (let ((rest (subsets (cdr s))))
+        (append rest (map <??> rest)))))
+#+end_src
+
+*** Solution
+
+The set of all subsets of a given set is the union of:
+
+- the set of all subsets excluding the first element
+- the set of all subsets excluding the first element, with the first element re-inserted into each subset
+
+#+name: diagram-subset
+#+begin_example
+(subsets '(1 2 3))                             = '(() (3) (2) (2 3) (1) (1 3) (1 2) (1 2 3))
+      /   \                                        ↑ '(() (3) (2) (2 3)) + '((1) (1 3) (1 2) (1 2 3))
+     1     (subsets '(2 3))                    = '(() (3) (2) (2 3))
+                 /   \                             ↑ '(() (3)) + '((2) (2 3))
+                2     (subsets '(3))           = '(() (3))
+                            /   \                  ↑ '(()) + '((3))
+                           3     (subsets '()) = '(())
+#+end_example
+
+
+#+name: subsets-procedure
+#+begin_src scheme
+(define (subsets s)
+  (define nil '())
+  (if (null? s)
+      (list nil)
+      (let ((rest (subsets (cdr s))))
+        (append rest
+                (map (lambda (set) (append (list (car s)) set))
+                     rest)))))
+#+end_src
+
+#+name: test-subsets-procedure
+#+begin_src scheme
+<<subsets-procedure>>
+
+(display (subsets '(1 2 3)))
+#+end_src
+
+#+RESULTS: test-subsets-procedure
+: (() (3) (2) (2 3) (1) (1 3) (1 2) (1 2 3))
+
+** Exercise 2.33
+
+Fill in the missing expressions to complete the following definitions of some basic list-manipulation operations as accumulations:
+
+#+begin_src scheme
+(define (map p sequence)
+  (accumulate (lambda (x y) <??>) nil sequence))
+(define (append seq1 seq2)
+  (accumulate cons <??> <??>))
+(define (length sequence)
+  (accumulate <??> 0 sequence))
+#+end_src
+
+*** Solution
+
+#+name: accumulate-procedure
+#+begin_src scheme
+(define (accumulate op initial sequence)
+  (if (null? sequence)
+      initial
+      (op (car sequence)
+          (accumulate op initial (cdr sequence)))))
+#+end_src
+
+#+name: list-manipulation-accumulations
+#+begin_src scheme
+(define (map p sequence)
+  (define nil '())
+  (accumulate (lambda (x y) (cons (p x) y)) nil sequence))
+(define (append seq1 seq2)
+  (accumulate cons seq2 seq1))
+(define (length sequence)
+  (accumulate (lambda (x y) (+ 1 y)) 0 sequence))
+#+end_src
+
+#+name: test-list-manipulations
+#+begin_src scheme
+<<accumulate-procedure>>
+<<list-manipulation-accumulations>>
+
+(define seq '(1 2 3 4 5 6))
+(printf "~a~n" (map (lambda (x) (* x x)) seq))
+(printf "~a~n" (append seq '(7 8 9 10)))
+(printf "~a~n" (length seq))
+#+end_src
+
+#+RESULTS: test-list-manipulations
+: (1 4 9 16 25 36)
+: (1 2 3 4 5 6 7 8 9 10)
+: 6
+
+** Exercise 2.34
+
+Evaluating a polynomial in $x$ at a given value of $x$ can be formulated as an accumulation. We evaluate the polynomial
+
+\[a_nx^n+a_{n-1}x^{n-1}+\cdots+a_1x+a_0\]
+
+using a well-known algorithm called /Horner's rule/, which structures the computation as
+
+\[(\dots(a_nx+a_{n-1})x+\cdots+a_1)x+a_0\].
+
+In other words, we start with $a_n$, multiply by $x$, add $a_{n-1}$, multiply by $x$, and so on, until we reach $a_0$.[fn:8]
+
+Fill in the following template to produce a procedure that evaluates a polynomial using Horner's rule. Assume that the coefficients of the polynomial are arranged in a sequence, from $a_0$ through $a_n$.
+
+#+begin_src scheme
+(define (horner-eval x coefficient-sequence)
+  (accumulate (lambda (this-coeff higher-terms) <??>)
+              0
+              coefficient-sequence))
+#+end_src
+
+For example, to compute $1+3x+5x^3+x^5$ at $x=2$ you would evaluate
+
+#+begin_src scheme
+(horner-eval 2 (list 1 3 0 5 0 1))
+#+end_src
+
+*** Solution
+
+#+name: horner-eval-procedure
+#+begin_src scheme
+<<accumulate-procedure>>
+(define (horner-eval x coefficient-sequence)
+  (accumulate (lambda (this-coeff higher-terms)
+                (+ (* higher-terms x) this-coeff))
+              0
+              coefficient-sequence))
+#+end_src
+
+#+name: test-horner-eval-procedure
+#+begin_src scheme
+<<horner-eval-procedure>>
+
+(display (horner-eval 2 (list 1 3 0 5 0 1)))
+#+end_src
+
+#+RESULTS: test-horner-eval-procedure
+: 79
+
+** Exercise 2.35
+
+Redefine ~count-leaves~ from Section 2.2.2 as an accumulation:
+
+#+begin_src scheme
+(define (count-leaves t)
+  (accumulate <??> <??> (map <??> <??>)))
+#+end_src
+
+*** Solution
+
+#+name: redefine-count-leaves
+#+begin_src scheme
+<<accumulate-procedure>>
+(define (count-leaves t)
+  (accumulate + 0 (map (lambda (x) (if (not (pair? x)) 1 (count-leaves x))) t)))
+#+end_src
+
+#+name: test-redefine-count-leaves
+#+begin_src scheme
+<<redefine-count-leaves>>
+
+(define x '((1 2) 3 4))
+(display (count-leaves x)) (newline)
+(display (count-leaves (list x x)))
+#+end_src
+
+#+RESULTS: test-redefine-count-leaves
+: 4
+: 8
+
+** Exercise 2.36
+
+The procedure ~accumulate-n~ is similar to ~accumulate~ except that it takes as its third argument a sequence of sequences, which are all assumed to have the same number of elements. It applies the designated accumulation procedure to combine all the first elements of the sequences, all the second elements of the sequences, and so on, and returns a sequence of the results. For instance, if ~s~ is a sequence containing four sequences, ~((1 2 3) (4 5 6) (7 8 9) (10 11 12))~, then the value of ~(accumulate-n + 0 s)~ should be the sequence ~(22 26 30)~. Fill in the missing expressions in the following definition of ~accumulate-n~:
+
+#+begin_src scheme
+(define (accumulate-n op init seqs)
+  (if (null? (car seqs))
+      nil
+      (cons (accumulate op init <??>)
+            (accumulate-n op init <??>))))
+#+end_src
+
+*** Solution
+
+#+name: accumulate-n-procedure
+#+begin_src scheme
+<<accumulate-procedure>>
+
+(define (accumulate-n op init seqs)
+  (define nil '())
+  (if (null? (car seqs))
+      nil
+      (cons (accumulate op init (map car seqs))
+            (accumulate-n op init (map cdr seqs)))))
+#+end_src
+
+#+name: test-accumulate-n-procedure
+#+begin_src scheme
+<<accumulate-n-procedure>>
+
+(define s '((1 2 3) (4 5 6) (7 8 9) (10 11 12)))
+(display (accumulate-n + 0 s))
+#+end_src
+
+#+RESULTS: test-accumulate-n-procedure
+: (22 26 30)
+
+** Exercise 2.37
+
+Suppose we represent vectors $\textbf{v}=(v_i)$ as sequences of numbers, and matrices $\textbf{m}=(m_{ij})$ as sequences of vectors (the rows of the matrix). For example, the matrix
+
+\begin{pmatrix}
+1 & 2 & 3 & 4 \\
+4 & 5 & 6 & 6 \\
+6 & 7 & 8 & 9
+\end{pmatrix}
+
+is represented as the sequence ~((1 2 3 4) (4 5 6 6) (6 7 8 9))~. With this representation, we can use sequence operations to concisely express the basic matrix and vector operations. These operations (which are described in any book on matrix algebra) are the following:
+
+\begin{center}
+\begin{tabular}{rl}
+\verb|(dot-product v w)| & returns the sum $\Sigma_iv_iw_i$; \\
+\verb|(matrix-*-vector m v)| & returns the vector \textbf{t}, \\
+& where $t_i=\Sigma_jm_{ij}v_{j}$; \\
+\verb|(matrix-*-matrix m n| & returns the matrix \textbf{p}, \\
+& where $p_{ij}=\Sigma_km_{ik}n_{kj}$; \\
+\verb|(transpose m)| & returns the matrix \textbf{n}, \\
+& where $n_{ij}=m_{ji}$.
+\end{tabular}
+\end{center}
+
+We can define the dot product as[fn:9]
+
+#+name: dot-product-procedure
+#+begin_src scheme
+(define (dot-product v w)
+  (accumulate + 0 (map * v w)))
+#+end_src
+
+Fill in the missing expressions int the following procedures for computing the other matrix operations. (The procedure ~accumulate-n~ is defined in [[*Exercise 2.36][Exercise 2.36]].)
+
+#+begin_src scheme
+(define (matrix-*-vector m v)
+  (map <??> m))
+(define (transpose mat)
+  (accumulate-n <??> <??> mat))
+(define (matrix-*-matrix m n)
+  (let ((cols (transpose n)))
+    (map <??> m)))
+#+end_src
+
+*** Solution
+
+#+name: matrix-operations
+#+begin_src scheme
+<<accumulate-n-procedure>>
+
+<<dot-product-procedure>>
+(define (matrix-*-vector m v)
+  (map (lambda (row) (dot-product row v)) m))
+(define (transpose mat)
+  (accumulate-n cons '() mat))
+(define (matrix-*-matrix m n)
+  (let ((cols (transpose n)))
+    (map (lambda (row)
+           (map (lambda (col)
+                  (dot-product row col))
+                cols))
+         m)))
+#+end_src
+
+#+name: test-matrix-operations
+#+begin_src scheme
+<<matrix-operations>>
+
+(define m '((1 2 3 4) (4 5 6 6) (6 7 8 9)))
+(define n '((1 2 3) (4 5 6) (7 8 9) (0 0 0)))
+(define v '(1 2 3 4))
+(define w '(5 6 7 8))
+
+(printf "~a~n" (dot-product v w))
+(printf "~a~n" (matrix-*-vector m v))
+(printf "~a~n" (transpose m))
+(printf "~a~n" (matrix-*-matrix m n))
+#+end_src
+
+#+RESULTS: test-matrix-operations
+: 70
+: (30 56 80)
+: ((1 4 6) (2 5 7) (3 6 8) (4 6 9))
+: ((30 36 42) (66 81 96) (90 111 132))
+
+** Exercise 2.38
+
+The ~accumulate~ procedure is also known as ~fold-right~, because it combines the first element of the sequence with the result of combining all the elements to the right. There is also a ~fold-left~, which is similar to ~fold-right~, except that it combines elements working in the opposite direction:
+
+#+name: fold-procedures
+#+begin_src scheme
+<<accumulate-procedure>>
+(define fold-right accumulate)
+(define (fold-left op initial sequence)
+  (define (iter result rest)
+    (if (null? rest)
+        result
+        (iter (op result (car rest))
+              (cdr rest))))
+  (iter initial sequence))
+#+end_src
+
+What are the values of
+
+#+begin_src scheme
+(fold-right / 1 (list 1 2 3))
+(fold-left / 1 (list 1 2 3))
+(fold-right list nil (list 1 2 3))
+(fold-left list nil (list 1 2 3))
+#+end_src
+
+Give a property that ~op~ should satisfy to guarantee that ~fold-right~ and ~fold-left~ will produce the same values for any sequence.
+
+*** Solution
+
+#+begin_src scheme
+(fold-right / 1 (list 1 2 3))
+3/2
+(fold-left / 1 (list 1 2 3))
+1/6
+(fold-right list nil (list 1 2 3))
+(1 (2 (3 ())))
+(fold-left list nil (list 1 2 3))
+(((() 1) 2) 3)
+#+end_src
+
+#+name: verify-example-results
+#+begin_src scheme
+<<fold-procedures>>
+
+(define nil '())
+
+(printf "~a~n" (fold-right / 1 (list 1 2 3)))
+(printf "~a~n" (fold-left / 1 (list 1 2 3)))
+(printf "~a~n" (fold-right list nil (list 1 2 3)))
+(printf "~a~n" (fold-left list nil (list 1 2 3)))
+(printf "~a~n" (fold-right + 0 (list 1 2 3 4)))
+(printf "~a~n" (fold-left + 0 (list 1 2 3 4)))
+#+end_src
+
+#+RESULTS: verify-example-results
+: 3/2
+: 1/6
+: (1 (2 (3 ())))
+: (((() 1) 2) 3)
+: 10
+: 10
+
+** Exercise 2.39
+
+Complete the following definitions of ~reverse~ ([[*Exercise 2.18][Exercise 2.18]]) in terms of ~fold-right~ and ~fold-left~ from [[*Exercise 2.38][Exercise 2.38]]:
+
+#+begin_src scheme
+(define (reverse sequence)
+  (fold-right (lambda (x y) <??>) nil sequence))
+(define (reverse sequence)
+  (fold-left (lambda (x y) <??>) nil sequence))
+#+end_src
+
+*** Solution
+
+#+name: reverse-fold-procedures
+#+begin_src scheme
+<<fold-procedures>>
+(define nil '())
+(define (reverse-use-fold-right sequence)
+  (fold-right
+   (lambda (current result)
+     (append result (list current)))
+   nil
+   sequence))
+(define (reverse-use-fold-left sequence)
+  (fold-left
+   (lambda (result current)
+     (cons current result))
+   nil
+   sequence))
+#+end_src
+
+#+name: test-reverse-fold-procedures
+#+begin_src scheme
+<<reverse-fold-procedures>>
+
+(define s '(1 2 3 4 5 6 7 8))
+(printf "~a~n" (reverse-use-fold-right s))
+(printf "~a~n" (reverse-use-fold-left s))
+#+end_src
+
+#+RESULTS: test-reverse-fold-procedures
+: (8 7 6 5 4 3 2 1)
+: (8 7 6 5 4 3 2 1)
+
+** Exercise 2.40
+
+Define a procedure ~unique-pairs~ that, given an integer ~n~, generates the sequence of pairs (/i, j/) with $1 \leq j < i \leq n$. Use ~unique-pairs~ to simplify the definition of ~prime-sum-pairs~ given above.
+
+*** Solution
+
+#+name: flatmap-procedure
+#+begin_src scheme
+<<accumulate-procedure>>
+(define (flatmap proc seq)
+  (accumulate append '() (map proc seq)))
+#+end_src
+
+#+name: enumerate-interval-procedure
+#+begin_src scheme
+(define (enumerate-interval low high)
+  (if (> low high)
+      '()
+      (cons low (enumerate-interval (+ low 1) high))))
+#+end_src
+
+#+name: unique-pairs-procedure
+#+begin_src scheme
+(define (unique-pairs n)
+  (flatmap
+   (lambda (i)
+     (map (lambda (j) (list i j))
+          (enumerate-interval 1 (- i 1))))
+   (enumerate-interval 1 n)))
+#+end_src
+
+#+name: make-pair-sum-procedure
+#+begin_src scheme
+(define (make-pair-sum pair)
+  (list (car pair) (cadr pair) (+ (car pair) (cadr pair))))
+#+end_src
+
+#+name: prime-predicate
+#+begin_src scheme
+(define (prime? x)
+  (define (square n) (* n n))
+  (define (test divisor)
+    (cond ((> (square divisor) x) true)
+          ((= 0 (remainder x divisor)) false)
+          (else (test (+ divisor 1)))))
+  (test 2))
+#+end_src
+
+#+name: prime-sum-predicate
+#+begin_src scheme
+(define (prime-sum? pair)
+  (prime? (+ (car pair) (cadr pair))))
+#+end_src
+
+#+name: prime-sum-pairs-procedure
+#+begin_src scheme
+<<flatmap-procedure>>
+<<enumerate-interval-procedure>>
+<<unique-pairs-procedure>>
+<<make-pair-sum-procedure>>
+<<prime-predicate>>
+<<prime-sum-predicate>>
+(define (prime-sum-pairs n)
+  (map make-pair-sum (filter prime-sum? (unique-pairs n))))
+#+end_src
+
+#+name: test-solution-2.40
+#+begin_src scheme
+<<prime-sum-pairs-procedure>>
+
+(display (prime-sum-pairs 6))
+#+end_src
+
+#+RESULTS: test-solution-2.40
+: ((2 1 3) (3 2 5) (4 1 5) (4 3 7) (5 2 7) (6 1 7) (6 5 11))
+
+** Exercise 2.41
+
+Write a procedure to find all ordered triples of distinct positive integers ~i~, ~j~, and ~k~ less than or equal to a given integer ~n~ that sum to a given integer ~s~.
+
+*** Solution
+
+#+name: ordered-triples-sum-procedure
+#+begin_src scheme
+<<flatmap-procedure>>
+<<enumerate-interval-procedure>>
+(define (unique-triples n)
+  (flatmap (lambda (k)
+             (flatmap (lambda (j)
+                        (map (lambda (i) (list i j k))
+                             (enumerate-interval 1 (- j 1))))
+                      (enumerate-interval 2 (- k 1))))
+           (enumerate-interval 3 n)))
+(define (ordered-triples-sum n s)
+  (filter (lambda (triple) (= (accumulate + 0 triple) s))
+          (unique-triples n)))
+#+end_src
+
+#+name: test-solution-2.41
+#+begin_src scheme
+<<ordered-triples-sum-procedure>>
+
+(printf "~a~n" (ordered-triples-sum 10 10))
+#+end_src
+
+#+RESULTS: test-solution-2.41
+: ((2 3 5) (1 4 5) (1 3 6) (1 2 7))
+
+#+name: solution-2.41-from-schemewiki
+#+begin_src scheme
+(define (unique-tuples n k)
+  (define nil '())
+  (cond ((< n k) nil)
+        ((= k 0) (list nil))
+        (else (append (unique-tuples (- n 1) k)
+                      (map (lambda (tuple) (cons n tuple))
+                           (unique-tuples (- n 1) (- k 1)))))))
+(define (ordered-triples-sum n s)
+  (filter (lambda (triple) (= (accumulate + 0 triple) s))
+          (unique-tuples n 3)))
+#+end_src
+
+#+name: test-solution-2.41-from-schemewiki
+#+begin_src scheme
+<<accumulate-procedure>>
+<<solution-2.41-from-schemewiki>>
+
+(printf "~a~n" (ordered-triples-sum 10 10))
+#+end_src
+
+#+RESULTS: test-solution-2.41-from-schemewiki
+: ((5 3 2) (5 4 1) (6 3 1) (7 2 1))
+
+** Exercise 2.42
+
+The "eight-queens puzzle" asks how to place eight queens on a chessboard so that no queen is in check from any other (i.e., no two queens are in the same row, column, or diagonal). One possible solution is shown is [[https://sarabander.github.io/sicp/html/2_002e2.xhtml#Figure-2_002e8][Figure 2.8]]. One way to solve the puzzle is to work across the board, placing a queen in each column. Once we have placed $k-1$ queens, we must place the $k^{th}$ queen in a position where it does not check any of the queens already on the board. We can formulate this approach recursively: Assume that we have already generated the sequence of all possible ways to place $k-1$ queens in the first $k-1$ columns of the board. For each of these ways, generate an extended set of positions by placing a queen in each row of the $k^{th}$ column. Now filter these, keeping only the positions for which the queen in the $k^{th}$ column is safe with respect to the other queens. This produces the sequence of all ways to place ~k~ queens in the first ~k~ columns. By continuing this process, we will produce not only one solution, but all solutions to the puzzle.
+
+We implement this solution as a procedure ~queens~, which returns a sequence of all solutions to the problem of placing ~n~ queens on an $n \times n$ chessboard. ~queens~ has an internal procedure ~queen-cols~ that returns the sequence of all ways to place queens in the first ~k~ columns of the board.
+
+#+name: queens-procedure
+#+begin_src scheme
+(define (queens board-size)
+  (define (queen-cols k)
+    (if (= k 0)
+        (list empty-board)
+        (filter
+         (lambda (positions) (safe? k positions))
+         (flatmap
+          (lambda (rest-of-queens)
+            (map (lambda (new-row)
+                   (adjoin-position
+                    new-row k rest-of-queens))
+                 (enumerate-interval 1 board-size)))
+          (queen-cols (- k 1))))))
+  (queen-cols board-size))
+#+end_src
+
+In this procedure ~rest-of-queens~ is a way to place $k-1$ queens in the first $k-1$ columns, and ~new-row~ is a proposed row in which to place the queen for the $k^{th}$ column. Complete the program by implementing the representation for sets of board positions, including the procedure ~adjoin-position~, which adjoins a new row-column position to a set of positions, and ~empty-board~, which represents an empty set of positions. You must also write the procedure ~safe?~, which determines for a set of positions, whether the queen in the $k^{th}$ column is safe with respect to the others. (Note that we need only check whether the new queen is safe--the other queens are already guaranteed safe with respect to each other.)
+
+*** Solution
+
+#+name: board-representation
+#+begin_example
+Representation in diagram
+
+  Column 1   Column 2   Column 3   Column 4      Column 8
+  +---+---+  +---+---+  +---+---+  +---+---+     +---+---+
+->| * | *-+->| * | *-+->| * | *-+->| * | *-+-...>| * | / |
+  +-+-+---+  +-+-+---+  +-+-+---+  +-+-+---+     +-+-+---+
+    |          |          |          |             |
+    V          V          V          V             V
+  +---+      +---+      +---+      +---+         +---+
+  | 3 |      | 7 |      | 2 |      | 8 |         | 6 |
+  +---+      +---+      +---+      +---+         +---+
+
+Representation in Scheme code
+'(3 7 2 8 ... 6)
+#+end_example
+
+#+name: adjoin-position-procedure
+#+begin_src scheme
+(define (adjoin-position new-row k rest-of-queens)
+  (append rest-of-queens (list new-row)))
+#+end_src
+
+#+name: empty-board
+#+begin_src scheme
+(define empty-board '())
+#+end_src
+
+#+name: diagonal-safe-diagram
+#+begin_example
+The same right diagonal means that row number minus column number is the same result.
+    1      2     3     4     5     6     7     8
+  +-----+-----+-----+-----+-----+-----+-----+-----+
+1 |  0  |  -1 |  -2 |  -3 |  -4 |  -5 |  -6 |  -7 |
+  +-----+-----+-----+-----+-----+-----+-----+-----+
+2 |  1  |  0  |  -1 |  -2 |  -3 |  -4 |  -5 |  -6 |
+  +-----+-----+-----+-----+-----+-----+-----+-----+
+3 |  2  |  1  |  0  |  -1 |  -2 |  -3 |  -4 |  -5 |
+  +-----+-----+-----+-----+-----+-----+-----+-----+
+4 |  3  |  2  |  1  |  0  |  -1 |  -2 |  -3 |  -4 |
+  +-----+-----+-----+-----+-----+-----+-----+-----+
+5 |  4  |  3  |  2  |  1  |  0  |  -1 |  -2 |  -3 |
+  +-----+-----+-----+-----+-----+-----+-----+-----+
+6 |  5  |  4  |  3  |  2  |  1  |  0  |  -1 |  -2 |
+  +-----+-----+-----+-----+-----+-----+-----+-----+
+7 |  6  |  5  |  4  |  3  |  2  |  1  |  0  |  -1 |
+  +-----+-----+-----+-----+-----+-----+-----+-----+
+8 |  7  |  6  |  5  |  4  |  3  |  2  |  1  |  0  |
+  +-----+-----+-----+-----+-----+-----+-----+-----+
+
+The same left diagonal means that row number add column number is the same result.
+    1      2     3     4     5     6     7     8
+  +-----+-----+-----+-----+-----+-----+-----+-----+
+1 |  2  |  3  |  4  |  5  |  6  |  7  |  8  |  9  |
+  +-----+-----+-----+-----+-----+-----+-----+-----+
+2 |  3  |  4  |  5  |  6  |  7  |  8  |  9  |  10 |
+  +-----+-----+-----+-----+-----+-----+-----+-----+
+3 |  4  |  5  |  6  |  7  |  8  |  9  |  10 |  11 |
+  +-----+-----+-----+-----+-----+-----+-----+-----+
+4 |  5  |  6  |  7  |  8  |  9  |  10 |  11 |  12 |
+  +-----+-----+-----+-----+-----+-----+-----+-----+
+5 |  6  |  7  |  8  |  9  |  10 |  11 |  12 |  13 |
+  +-----+-----+-----+-----+-----+-----+-----+-----+
+6 |  7  |  8  |  9  |  10 |  11 |  12 |  13 |  14 |
+  +-----+-----+-----+-----+-----+-----+-----+-----+
+7 |  8  |  9  |  10 |  11 |  12 |  13 |  14 |  15 |
+  +-----+-----+-----+-----+-----+-----+-----+-----+
+8 |  9  |  10 |  11 |  12 |  13 |  14 |  15 |  16 |
+  +-----+-----+-----+-----+-----+-----+-----+-----+
+#+end_example
+
+#+name: safe-predicate
+#+begin_src scheme
+(define (safe? k positions)
+  (define (get-row c position)
+    (cond ((null? position) -1)
+          ((= c 1) (car position))
+          (else (get-row (- c 1) (cdr position)))))
+  (define (row-safe? c position)
+    (cond ((= c 0) #t)
+          ((= (get-row k position) (get-row c position)) #f)
+          (else (row-safe? (- c 1) position))))
+  (define (diagonal-safe? c position)
+    (let ((r (get-row k position))
+          (other (get-row c position)))
+      (cond ((= c 0) #t)
+            ((= (- r k) (- other c)) #f)
+            ((= (+ r k) (+ other c)) #f)
+            (else (diagonal-safe? (- c 1) position)))))
+  (and (row-safe? (- k 1) positions)
+       (diagonal-safe? (- k 1) positions)))
+#+end_src
+
+#+name: test-solution-2.42
+#+begin_src scheme
+<<flatmap-procedure>>
+<<enumerate-interval-procedure>>
+
+<<adjoin-position-procedure>>
+<<empty-board>>
+<<safe-predicate>>
+<<queens-procedure>>
+
+(define all-solutions (queens 8))
+(printf "Total: ~a~n" (length all-solutions)) ;; must as 92
+(define (print-positions positions)
+  (cond ((null? positions) (newline))
+        (else (printf "~n~a" (car positions))
+              (print-positions (cdr positions)))))
+(print-positions all-solutions)
+#+end_src
+
+#+RESULTS: test-solution-2.42
+#+begin_example
+Total: 92
+
+(1 5 8 6 3 7 2 4)
+(1 6 8 3 7 4 2 5)
+(1 7 4 6 8 2 5 3)
+(1 7 5 8 2 4 6 3)
+(2 4 6 8 3 1 7 5)
+(2 5 7 1 3 8 6 4)
+(2 5 7 4 1 8 6 3)
+(2 6 1 7 4 8 3 5)
+(2 6 8 3 1 4 7 5)
+(2 7 3 6 8 5 1 4)
+(2 7 5 8 1 4 6 3)
+(2 8 6 1 3 5 7 4)
+(3 1 7 5 8 2 4 6)
+(3 5 2 8 1 7 4 6)
+(3 5 2 8 6 4 7 1)
+(3 5 7 1 4 2 8 6)
+(3 5 8 4 1 7 2 6)
+(3 6 2 5 8 1 7 4)
+(3 6 2 7 1 4 8 5)
+(3 6 2 7 5 1 8 4)
+(3 6 4 1 8 5 7 2)
+(3 6 4 2 8 5 7 1)
+(3 6 8 1 4 7 5 2)
+(3 6 8 1 5 7 2 4)
+(3 6 8 2 4 1 7 5)
+(3 7 2 8 5 1 4 6)
+(3 7 2 8 6 4 1 5)
+(3 8 4 7 1 6 2 5)
+(4 1 5 8 2 7 3 6)
+(4 1 5 8 6 3 7 2)
+(4 2 5 8 6 1 3 7)
+(4 2 7 3 6 8 1 5)
+(4 2 7 3 6 8 5 1)
+(4 2 7 5 1 8 6 3)
+(4 2 8 5 7 1 3 6)
+(4 2 8 6 1 3 5 7)
+(4 6 1 5 2 8 3 7)
+(4 6 8 2 7 1 3 5)
+(4 6 8 3 1 7 5 2)
+(4 7 1 8 5 2 6 3)
+(4 7 3 8 2 5 1 6)
+(4 7 5 2 6 1 3 8)
+(4 7 5 3 1 6 8 2)
+(4 8 1 3 6 2 7 5)
+(4 8 1 5 7 2 6 3)
+(4 8 5 3 1 7 2 6)
+(5 1 4 6 8 2 7 3)
+(5 1 8 4 2 7 3 6)
+(5 1 8 6 3 7 2 4)
+(5 2 4 6 8 3 1 7)
+(5 2 4 7 3 8 6 1)
+(5 2 6 1 7 4 8 3)
+(5 2 8 1 4 7 3 6)
+(5 3 1 6 8 2 4 7)
+(5 3 1 7 2 8 6 4)
+(5 3 8 4 7 1 6 2)
+(5 7 1 3 8 6 4 2)
+(5 7 1 4 2 8 6 3)
+(5 7 2 4 8 1 3 6)
+(5 7 2 6 3 1 4 8)
+(5 7 2 6 3 1 8 4)
+(5 7 4 1 3 8 6 2)
+(5 8 4 1 3 6 2 7)
+(5 8 4 1 7 2 6 3)
+(6 1 5 2 8 3 7 4)
+(6 2 7 1 3 5 8 4)
+(6 2 7 1 4 8 5 3)
+(6 3 1 7 5 8 2 4)
+(6 3 1 8 4 2 7 5)
+(6 3 1 8 5 2 4 7)
+(6 3 5 7 1 4 2 8)
+(6 3 5 8 1 4 2 7)
+(6 3 7 2 4 8 1 5)
+(6 3 7 2 8 5 1 4)
+(6 3 7 4 1 8 2 5)
+(6 4 1 5 8 2 7 3)
+(6 4 2 8 5 7 1 3)
+(6 4 7 1 3 5 2 8)
+(6 4 7 1 8 2 5 3)
+(6 8 2 4 1 7 5 3)
+(7 1 3 8 6 4 2 5)
+(7 2 4 1 8 5 3 6)
+(7 2 6 3 1 4 8 5)
+(7 3 1 6 8 5 2 4)
+(7 3 8 2 5 1 6 4)
+(7 4 2 5 8 1 3 6)
+(7 4 2 8 6 1 3 5)
+(7 5 3 1 6 8 2 4)
+(8 2 4 1 7 5 3 6)
+(8 2 5 3 1 7 4 6)
+(8 3 1 6 2 5 7 4)
+(8 4 1 3 6 2 7 5)
+#+end_example
+
+** Exercise 2.43
+
+Louis Reasoner is having a terrible time doing [[*Exercise 2.42][Exercise 2.42]]. His ~queens~ procedure seems to work, but it runs extremely slowly.(Louis never does manage to wait long enough for it to solve even the $6\times 6$ case.) When Louis asks Eva Lu Ator for help, she points out that he has interchanged the order of the nested mappings in the ~flatmap~, writing it as
+
+#+begin_src scheme
+(flatmap
+ (lambda (new-row)
+   (map (lambda (rest-of-queens)
+          (adjoin-position new-row k rest-of-queens))
+        (queen-cols (- k 1))))
+ (enumerate-interval 1 board-size))
+#+end_src
+
+Explain why this interchange makes the program run slowly. Estimate how long it will take Louis's program to solve the eight-queens puzzle, assuming that the program in [[*Exercise 2.42][Exercise 2.42]] solves the puzzle in time /T/.
+
+*** Solutions
+
+- [[http://community.schemewiki.org/?sicp-ex-2.43][sicp-ex-2.43]]
+- [[https://wernerdegroot.wordpress.com/2015/08/01/sicp-exercise-2-43/][SICP Exercise 2.43 - Werner de Groot]]
+
+** Exercise 2.44
+
+Define the procedure ~up-split~ used by ~corner-split~. It is similar to ~right-split~, except that it switches the roles of ~below~ and ~beside~.
+
+*** Solution
+
+#+name: up-split-procedure
+#+begin_src scheme
+(define (up-split painter n)
+  (if (= n 0)
+      painter
+      (let ((smaller (up-split painter (- n 1))))
+        (below painter (beside smaller smaller)))))
+#+end_src
+
+** Exercise 2.45
+
+~right-split~ and ~up-split~ can be expressed as instances of a general splitting operation. Define a procedure ~split~ with the property that evaluating
+
+#+begin_src scheme
+(define right-split (split beside below))
+(define up-split (split below beside))
+#+end_src
+
+produces procedures ~right-split~ and ~up-split~ with the same behaviors as the ones already defined.
+
+*** Solution
+
+#+name: split-procedure
+#+begin_src scheme
+;; cp stands for the complete part
+;; dp stands for the divided part
+(define (split cp dp)
+  (define (split-iter painter n)
+    (if (= n 0)
+        painter
+        (let ((smaller (split-iter painter (- n 1))))
+          (cp painter (dp smaller smaller)))))
+  split-iter)
+#+end_src
+
+** Exercise 2.46
+
+A two-dimensional vector $\textbf{v}$ running from the origin to a point can be represented as a pair consisting of an /x/-coordinate and a /y/-coordinate. Implement a data abstraction for vectors by giving a constructor ~make-vect~ and corresponding selectors ~xcor-vect~ and ~ycor-vect~. In terms of your selectors and constructor, implement procedures ~add-vect~, ~sub-vect~, and ~scale-vect~ that perform the operations vector addition, vector subtraction, and multiplying a vector by a scalar:
+
+\begin{align*}
+(x_1,y_1)+(x_2,y_2)&=(x_1+x_2,y_1+y_2), \\
+(x_1,y_1)-(x_2,y_2)&=(x_1-x_2,y_1-y_2), \\
+s\cdot(x,y)&=(sx,sy).
+\end{align*}
+
+*** Solution
+
+#+name: vect-constructor-and-selectors
+#+begin_src scheme
+(define (make-vect x y) (cons x y))
+(define xcor-vect car)
+(define ycor-vect cdr)
+#+end_src
+
+#+name: vector-operations
+#+begin_src scheme
+(define (add-vect v1 v2)
+  (make-vect (+ (xcor-vect v1) (xcor-vect v2))
+             (+ (ycor-vect v1) (ycor-vect v2))))
+(define (sub-vect v1 v2)
+  (make-vect (- (xcor-vect v1) (xcor-vect v2))
+             (- (ycor-vect v1) (ycor-vect v2))))
+(define (scale-vect s v)
+  (make-vect (* s (xcor-vect v)) (* s (ycor-vect v))))
+#+end_src
+
+#+name: test-solution-2.46
+#+begin_src scheme
+<<vect-constructor-and-selectors>>
+<<vector-operations>>
+
+(define (print-vect v)
+  (printf "(~a, ~a)~n" (xcor-vect v) (ycor-vect v)))
+
+(define v1 (make-vect 0 1))
+(define v2 (make-vect 1 2))
+(print-vect v1)
+(print-vect v2)
+(print-vect (add-vect v1 v2))
+(print-vect (sub-vect v1 v2))
+(print-vect (scale-vect 3 v1))
+(print-vect (scale-vect 3 v2))
+#+end_src
+
+#+RESULTS: test-solution-2.46
+: (0, 1)
+: (1, 2)
+: (1, 3)
+: (-1, -1)
+: (0, 3)
+: (3, 6)
+
+** Exercise 2.47
+
+Here are two possible constructors for frames:
+
+#+begin_src scheme
+(define (make-frame origin edge1 edge2)
+  (list origin edge1 edge2))
+(define (make-frame origin edge1 edge2)
+  (cons origin (cons edge1 edge2)))
+#+end_src
+
+For each constructor supply the appropriate selectors to produce an implementation for frames.
+
+*** Solution
+
+#+name: selectors-of-frame-common
+#+begin_src scheme
+(define origin-frame car)
+(define edge1-frame cadr)
+#+end_src
+
+#+name: edge2-frame-for-using-list
+#+begin_src scheme
+(define edge2-frame caddr)
+#+end_src
+
+#+name: edge2-frame-for-using-cons
+#+begin_src scheme
+(define edge2-frame cddr)
+#+end_src
+
+** Exercise 2.48
+
+A directed line segment in the plane can be represented as a pair of vectors--the vector running from the origin to the start-point of the segment, and the vector running from the origin to the end-point of the segment. Use your vector representation from [[*Exercise 2.46][Exercise 2.46]] to define a representation for segments with a constructor ~make-segment~ and selectors ~start-segment~ and ~end-segment~.
+
+*** Solution
+
+#+name: segment-constructor-and-selectors
+#+begin_src scheme
+(define make-segment cons)
+(define start-segment car)
+(define start-segment cdr)
+#+end_src
+
+** Exercise 2.49
+
+Use ~segments->painter~ to define the following primitive painters:
+
+a. The painter that draws the outline of the designated frame.
+b. The painter that draws an "X" by connecting opposite corners of the frame.
+c. The painter that draws a diamond shape by connecting the midpoints of the sides of the frame.
+d. The ~wave~ painter.
+
+*** Solution
+
+#+name: points-belong-unit-square
+#+begin_src scheme
+(define bottom-left (make-vect 0 0))
+(define middle-left (make-vect 0 0.5))
+(define top-left (make-vect 0 1))
+(define middle-top (make-vect 0.5 1))
+(define top-right (make-vect 1 1))
+(define middle-right (make-vect 1 0.5))
+(define bottom-right (make-vect 1 0))
+(define middle-bottom (make-vect 0.5 0))
+#+end_src
+
+#+name: outline-painter-procedure
+#+begin_src scheme
+(define outline
+  (list (make-segment bottom-left top-left)
+        (make-segment top-left top-right)
+        (make-segment top-right bottom-right)
+        (make-segment bottom-right bottom-left)))
+
+(define outline-painter (segments->painter outline))
+#+end_src
+
+#+name: cross-painter
+#+begin_src scheme
+(define cross
+  (list (make-segment bottom-left top-right)
+        (make-segment top-left bottom-right)))
+
+(define cross-painter (segments->painter cross))
+#+end_src
+
+#+name: diamond-painter
+#+begin_src scheme
+(define diamond
+  (list (make-segment middle-left middle-top)
+        (make-segment middle-top middle-right)
+        (make-segment middle-right middle-bottom)
+        (make-segment middle-bottom middle-left)))
+
+(define diamond-painter (segments->painter diamond))
+#+end_src
+
+** Exercise 2.50
+
+Define the transformation ~flip-horiz~, which flips painters horizontally, and transformations that rotate painters counterclockwise by 180 degrees and 270 degrees.
+
+*** Solution
+
+#+name: flip-horiz-procedure
+#+begin_src scheme
+(define (filp-horiz painter)
+  (transform-painter painter
+                     (make-vect 1.0 0.0)   ; new origin
+                     (make-vect 1.0 1.0)   ; new end of edge1
+                     (make-vect 0.0 0.0))) ; new end of edge2
+#+end_src
+
+#+name: rotate-180-counterclockwise
+#+begin_src scheme
+(define (rotate180 painter)
+  (transform-painter painter
+                     (make-vect 1.0 1.0)   ; new origin
+                     (make-vect 1.0 0.0)   ; new end of edge1
+                     (make-vect 0.0 1.0))) ; new end of edge2
+#+end_src
+
+#+name: rotate-270-counterclockwise
+#+begin_src scheme
+(define (rotate270 painter)
+  (transform-painter painter
+                     (make-vect 0.0 1.0)   ; new origin
+                     (make-vect 1.0 1.0)   ; new end of edge1
+                     (make-vect 0.0 0.0))) ; new end of edge2
+#+end_src
+
+** Exercise 2.51
+
+Define the ~below~ operation for painters. ~below~ takes two painters as arguments. The resulting painter, given a frame, draws with the first painter in the bottom of the frame and with the second painter in the top. Define ~below~ in two different ways--first by writing a procedure that is analogous to the ~beside~ procedure given above, and again in terms of ~beside~ and suitable rotation operations (from [[*Exercise 2.50][Exercise 2.50]]).
+
+*** Solution
+
+#+name: below-procedure
+#+begin_src scheme
+(define (below painter1 painter2)
+  (let ((split-point (make-vect 0.0 0.5)))
+    (let ((paint-bettom
+           (transform-painter
+            painter1
+            (make-vect 0.0 0.0)
+            split-point
+            (make-vect 1.0 0.0)))
+          (paint-top
+           (transform-painter
+            painter2
+            split-point
+            (make-vect 0.0 1.0)
+            (make-vect 1.0 0.5))))
+      (lambda (frame)
+        (paint-bottom frame)
+        (paint-top frame)))))
+#+end_src
+
+#+name: below-procedure-in-terms-of-beside
+#+begin_src scheme
+(define (below painter1 painter2)
+  (rotate90 (beside (rotate270 painter1)
+                    (rotate270 painter2))))
+#+end_src
+
+** Exercise 2.52
+
+Make changes to the square limit of ~wave~ shown in [[https://sarabander.github.io/sicp/html/2_002e2.xhtml#Figure-2_002e9][Figure 2.9]] by working at each of the levels described above. In particular:
+
+a. Add some segments to the primitive ~wave~ painter of [[*Exercise 2.49][Exercise 2.49]] (to add a smile, for example).
+b. Change the pattern constructed by ~corner-split~ (for example, by using only one copy of the ~up-split~ and ~right-split~ images instead of two).
+c. Modify the version of ~square-limit~ that uses ~square-of-four~ so as to assemble the corners in a different pattern. (For example, you might make the big Mr. Rogers look outward from each corner of the square.)
+
+*** Solution
+
+#+name: new-corner-split-procedure
+#+begin_src scheme
+(define (corner-split painter n)
+  (if (= n 0)
+      painter
+      (beside (below painter (up-split painter (- n 1)))
+              (below (right-split painter (- n 1)) (corner-split painter (- n 1))))))
+#+end_src
+
+#+name: flip-big-roger-look-outward
+#+begin_src scheme
+(define (square-limit painter n)
+  (let ((combine (square-of-four flip-horiz identity
+                                 rotate180 flip-vert)))
+    (combine (corner-split (flip-horiz painter) n))))
+#+end_src
+
+** Exercise 2.53
+
+What would the interpreter print in response to evaluating each of the following expressions?
+
+#+begin_src scheme
+(list 'a 'b 'c)
+(list (list 'george))
+(cdr '((x1 x2) (y1 y2)))
+(cadr '((x1 x2) (y1 y2)))
+(pair? (car '(a short list)))
+(memq 'red '((red shoes) (blue socks)))
+(memq 'red '(red shoes blue socks))
+#+end_src
+
+*** Solution
+
+#+begin_src scheme
+;; (list 'a 'b 'c)
+'(a b c)
+;; (list (list 'george))
+'((george))
+;; (cdr '((x1 x2) (y1 y2)))
+'((y1 y2))
+;; (cadr '((x1 x2) (y1 y2)))
+'(y1 y2)
+;; (pair? (car '(a short list)))
+#f
+;; (memq 'red '((red shoes) (blue socks)))
+#f
+;; (memq 'red '(red shoes blue socks))
+'(red shoes blue socks)
+#+end_src
+
+** Exercise 2.54
+
+Two lists are said to be ~equal?~ if they contain equal elements arranged in the same order. For example,
+
+#+begin_src scheme
+(equal? '(this is a list) '(this is a list))
+#+end_src
+
+is true, but
+
+#+begin_src scheme
+(equal? '(this is a list) '(this (is a) list))
+#+end_src
+
+is false. To be more precise, we can define ~equal?~ recursively in terms of the basic ~eq?~ equality of symbols by saying that ~a~ and ~b~ are ~equal?~ if they are both symbols and the symbols are ~eq?~, or if they are both lists such that ~(car a)~ is ~equal?~ to ~(car b)~ and ~(cdr a)~ is ~equal?~ to ~(cdr b)~. Using this idea, implement ~equal?~ as a procedure.[fn:10]
+
+*** Solution
+
+#+name: equal-procedure
+#+begin_src scheme
+(define (equal? a b)
+  (cond ((and (not (pair? a)) (not (pair? b)))
+         (eq? a b))
+        ((and (pair? a) (pair? b))
+         (and (equal? (car a) (car b))
+              (equal? (cdr a) (cdr b))))
+        (else false)))
+#+end_src
+
+#+name: test-solution-2.54
+#+begin_src scheme
+<<equal-procedure>>
+
+(printf "~a~n" (equal? '(this is a list) '(this is a list)))
+(printf "~a~n" (equal? '(this is a list) '(this (is a) list)))
+(printf "~a~n" (equal? 'list 'list))
+(printf "~a~n" (equal? 'list 'abcd))
+(printf "~a~n" (equal? '() '()))
+(printf "~a~n" (equal? '() '(1 2 3)))
+#+end_src
+
+#+RESULTS: test-solution-2.54
+: #t
+: #f
+: #t
+: #f
+: #t
+: #f
+
+** Exercise 2.55
+
+Eva Lu Ator types to the interpreter the expression
+
+#+begin_src scheme
+(car ''abracadabra)
+#+end_src
+
+To her surprise, the interpreter prints back ~quote~. Explain.
+
+*** Solution
+
+Because the ~''abracadabra~ will be interpreted as a symbol that starts with the single quote mark. To be clear, ~''abracadabra~ is treated by the interpreter as ~(list 'quote 'abracadabra)~.
+
+** Exercise 2.56
+
+Show how to extend the basic differentiator to handle more kinds of expressions. For instance, implement the differentiation rule
+
+\begin{align*}
+\frac{d(u^n)}{dx}=nu^{n-1}\frac{du}{dx}
+\end{align*}
+
+by adding a new clause to the ~deriv~ program and defining appropriate procedures ~exponentiation?~, ~base~, ~exponent~, and ~make-exponentiation~. (You may use the symbol ** to denote exponentiation.) Build in the rules that anything raised to the power 0 is 1 and anything raised to the power 1 is the thing itself.
+
+*** Solution
+
+#+name: exponentiation-procedures
+#+begin_src scheme
+(define (exponentiation? x) (and (pair? x) (eq? (car x) '**)))
+(define (base e) (cadr e))
+(define (exponent e) (caddr e))
+(define (make-exponentiation b pow)
+  (cond ((=number? pow 0) 1)
+        ((=number? pow 1) b)
+        ((and (number? b) (number? pow)) (expt b pow))
+        (else (list '** b pow))))
+(define (deriv exp var)
+  (cond ((number? exp) 0)
+        ((variable? exp) (if (same-variable? exp var) 1 0))
+        ((sum? exp) (make-sum (deriv (addend exp) var)
+                              (deriv (augend exp) var)))
+        ((product? exp)
+         (make-sum
+           (make-product (multiplier exp)
+                         (deriv (multiplicand exp) var))
+           (make-product (deriv (multiplier exp) var)
+                         (multiplicand exp))))
+        ((exponentiation? exp)
+         (make-product
+          (make-product (exponent exp)
+                        (make-exponentiation (base exp)
+                                             (make-sum (exponent exp) '-1)))
+          (deriv (base exp) var)))
+        (else
+         (error "unknown expresison type: DERIV" exp))))
+#+end_src
+
+#+name: algebraic-expressions
+#+begin_src scheme
+(define variable? symbol?)
+(define (same-variable? v1 v2)
+  (and (variable? v1) (variable? v2) (eq? v1 v2)))
+(define (=number? exp num) (and (number? exp) (= exp num)))
+(define (make-sum a1 a2)
+  (cond ((=number? a1 0) a2)
+        ((=number? a2 0) a1)
+        ((and (number? a1) (number? a2))
+         (+ a1 a2))
+        (else (list '+ a1 a2))))
+(define (make-product m1 m2)
+  (cond ((or (=number? m1 0) (=number? m2 0)) 0)
+        ((=number? m1 1) m2)
+        ((=number? m2 1) m1)
+        ((and (number? m1) (number? m2)) (* m1 m2))
+        (else (list '* m1 m2))))
+(define (sum? x) (and (pair? x) (eq? (car x) '+)))
+(define (addend s) (cadr s))
+(define (augend s) (caddr s))
+(define (product? x) (and (pair? x) (eq? (car x) '*)))
+(define (multiplier s) (cadr s))
+(define (multiplicand s) (caddr s))
+(define (deriv exp var)
+  (cond ((number? exp) 0)
+        ((variable? exp) (if (same-variable? exp var) 1 0))
+        ((sum? exp) (make-sum (deriv (addend exp) var)
+                              (deriv (augend exp) var)))
+        ((product? exp)
+         (make-sum
+           (make-product (multiplier exp)
+                         (deriv (multiplicand exp) var))
+           (make-product (deriv (multiplier exp) var)
+                         (multiplicand exp))))
+        (else
+         (error "unknown expresison type: DERIV" exp))))
+#+end_src
+
+#+name: test-solution-2.56
+#+begin_src scheme
+<<algebraic-expressions>>
+<<exponentiation-procedures>>
+
+(display (deriv '(+ (** x (* x 2)) x) 'x))
+#+end_src
+
+#+RESULTS: test-solution-2.56
+: (+ (* (* x 2) (** x (+ (* x 2) -1))) 1)
+
+** Exercise 2.57
+
+Extend the differentiation program to handle sums and products of arbitrary numbers of (two or more) terms. Then the last example above could be expressed as
+
+#+begin_src scheme
+(deriv '(* x y (+ x 3)) 'x)
+#+end_src
+
+Try to do this by changing only the representation for sums and products, without changing the ~deriv~ procedure at all. For example, the ~addend~ of a sum would be the first term, and the ~augend~ would be the sum of the rest of the terms.
+
+*** Solution
+
+#+name: handle-arbitrary-arguments
+#+begin_src scheme
+(define (handle-arbitrary-arguments base init-var)
+  (define (handle a1 a2 . rest)
+    (let ((rest-length (length rest)))
+      (if (= 0 rest-length)
+          (base a1 a2)
+          (handle (base a1 a2)
+                  (if (= 1 rest-length)
+                      (base init-var (car rest))
+                      (apply handle rest))))))
+  handle)
+(define (second-factor exp calculator)
+  (let ((res (cddr exp)))
+    (if (= (length res) 1)
+        (car res)
+        (apply calculator res))))
+#+end_src
+
+#+name: arbitrary-terms-deriv
+#+begin_src scheme
+<<handle-arbitrary-arguments>>
+(define make-sum
+  (handle-arbitrary-arguments
+   (lambda (a1 a2)
+     (cond ((=number? a1 0) a2)
+           ((=number? a2 0) a1)
+           ((and (number? a1) (number? a2)) (+ a1 a2))
+           (else (list '+ a1 a2))))
+   0))
+(define (augend s) (second-factor s make-sum))
+
+(define make-product
+  (handle-arbitrary-arguments
+   (lambda (m1 m2)
+     (cond ((or (=number? m1 0) (=number? m2 0)) 0)
+           ((=number? m1 1) m2)
+           ((=number? m2 1) m1)
+           ((and (number? m1) (number? m2)) (* m1 m2))
+           (else (list '* m1 m2))))
+   1))
+(define (multiplicand p) (second-factor p make-product))
+#+end_src
+
+#+name: test-solution-2.57
+#+begin_src scheme
+<<algebraic-expressions>>
+<<arbitrary-terms-deriv>>
+
+(printf "~a~n" (deriv '(* (* x y) (+ x 3)) 'x))
+(printf "~a~n" (deriv '(* x y (+ x 3)) 'x))
+#+end_src
+
+#+RESULTS: test-solution-2.57
+: (+ (* x y) (* y (+ x 3)))
+: (+ (* x y) (* y (+ x 3)))
+
+** Exercise 2.58
+
+Suppose we want to modify the differentiation program so that it works with ordinary mathematical notation, in which ~+~ and ~*~ are infix rather that prefix operators. Since the differentiation program is defined in terms of abstract data, we can modify it to work with different representations of expressions solely by changing the predicates, selectors, and constructors that define the representation of the algebraic expressions on which the differentiator is to operate.
+
+a. Show how to do this in order to differentiate algebraic expressions presented in infix form, such as ~(x + (3 * (x + (y + 2))))~. To simplify the task, assume that ~+~ and ~*~ always take two arguments and that expressions are fully parenthesized.
+b. The problem becomes substantially harder if we allow standard algebraic notation, such as ~(x + 3 * (x + y + 2))~, which drops unnecessary parentheses and assumes that multiplication is done before addition. Can you design appropriate predicates, selectors, and constructors for this notation such that our derivative program still works?
+
+*** Solution
+
+**** Two arguments and fully parenthesized
+
+#+name: two-arguments-infix-operators
+#+begin_src scheme
+; Predicates
+(define (sum? x) (and (pair? x) (eq? (cadr x) '+)))
+(define (product? x) (and (pair? x) (eq? (cadr x) '*)))
+; Selectors
+(define (addend s) (car s))
+(define (augend s) (caddr s))
+(define (multiplier s) (car s))
+(define (multiplicand s) (caddr s))
+; Constructors
+(define (make-sum a1 a2)
+  (cond ((=number? a1 0) a2)
+        ((=number? a2 0) a1)
+        ((and (number? a1) (number? a2))
+         (+ a1 a2))
+        (else (list a1 '+ a2))))
+(define (make-product m1 m2)
+  (cond ((or (=number? m1 0) (=number? m2 0)) 0)
+        ((=number? m1 1) m2)
+        ((=number? m2 1) m1)
+        ((and (number? m1) (number? m2)) (* m1 m2))
+        (else (list m1 '* m2))))
+#+end_src
+
+#+name: test-solution-2.58-a
+#+begin_src scheme
+<<algebraic-expressions>>
+<<two-arguments-infix-operators>>
+
+(display (deriv '(x + (3 * (x + (y + 2)))) 'x))
+#+end_src
+
+#+RESULTS: test-solution-2.58-a
+: 4
+
+**** Drops unnecessary parentheses
+
+#+name: drops-unnecessary-parentheses
+#+begin_src scheme
+; Predicates
+(define (sum? x) (and (pair? x) (eq? (cadr x) '+)))
+(define (product? x) (and (pair? x) (eq? (cadr x) '*)))
+; Selectors
+(define (addend s) (car s))
+(define (augend s)
+  (let ((res (cddr s)))
+    (if (= (length res) 1) (car res) res)))
+(define (multiplier s) (car s))
+(define (multiplicand s)
+  (let ((res (cddr s)))
+    (if (or (= (length res) 1) (sum? res)) (car res) res)))
+; Constructors
+(define (make-sum a1 a2)
+  (cond ((=number? a1 0) a2)
+        ((=number? a2 0) a1)
+        ((and (number? a1) (number? a2))
+         (+ a1 a2))
+        (else (list a1 '+ a2))))
+(define (make-product m1 m2)
+  (cond ((or (=number? m1 0) (=number? m2 0)) 0)
+        ((=number? m1 1) m2)
+        ((=number? m2 1) m1)
+        ((and (number? m1) (number? m2)) (* m1 m2))
+        ((sum? m2) (make-sum (make-product m1 (car m2)) (cdr m2)))
+        (else (list m1 '* m2))))
+#+end_src
+
+#+name: test-solution-2.58-b
+#+begin_src scheme
+<<algebraic-expressions>>
+<<drops-unnecessary-parentheses>>
+
+(printf "~a~n" (deriv '(x + 3 * (x + y + 2)) 'x))
+(printf "~a~n" (deriv '(x * 3 + y) 'x))
+(printf "~a~n" (deriv '(x * 3 * y) 'x))
+#+end_src
+
+#+RESULTS: test-solution-2.58-b
+: 4
+: 3
+: (3 * y)
+
+** Exercise 2.59
+
+Implement the ~union-set~ operation for the unordered-list representation of sets.
+
+*** Solution
+
+#+name: element-of-set-procedure-unordered-list
+#+begin_src scheme
+(define (element-of-set? x set)
+  (cond ((null? set) false)
+        ((equal? x (car set)) true)
+        (else (element-of-set? x (cdr set)))))
+#+end_src
+
+#+name: union-set-procedure-unordered-list
+#+begin_src scheme
+(define (union-set set1 set2)
+  (cond ((null? set1) set2)
+        ((null? set2) set1)
+        ((element-of-set? (car set1) set2)
+         (union-set (cdr set1) set2))
+        (else (cons (car set1) (union-set (cdr set1) set2)))))
+#+end_src
+
+#+name: test-solution-2.59
+#+begin_src scheme
+<<element-of-set-procedure-unordered-list>>
+<<union-set-procedure-unordered-list>>
+
+(display (union-set '(3 2 1 4) '(8 6 4 5 2 7)))
+#+end_src
+
+#+RESULTS: test-solution-2.59
+: (3 1 8 6 4 5 2 7)
+
+** Exercise 2.60
+
+We specified that a set would be represented as a list with no duplicates. Now suppose we allow duplicates. For instance, the set $\{1,2,3\}$ could be represented as the list ~(2 3 2 1 3 2 2)~. Design procedures ~element-of-set?~, ~adjoin-set~, ~union-set~, and ~intersection-set~ that operate on this representation. How does the efficiency of each compare with the corresponding procedure for the non-duplicate representation? Are there applications for which you would use this representation in preference to the non-duplicate one?
+
+*** Solution
+
+#+name: element-of-set-duplicated-list
+#+begin_src scheme
+(define (element-of-set? x set)
+  (cond ((null? set) false)
+        ((equal? x (car set)) true)
+        (else (element-of-set? x (cdr set)))))
+#+end_src
+
+#+name: adjoin-set-duplicated-list
+#+begin_src scheme
+(define adjoin-set cons)
+#+end_src
+
+#+name: union-set-duplicated-list
+#+begin_src scheme
+(define union-set append)
+#+end_src
+
+#+name: intersection-set-duplicated-list
+#+begin_src scheme
+(define (intersection-set set1 set2)
+  (cond ((or (null? set1) (null? set2)) '())
+        ((element-of-set? (car set1) set2)
+         (cons (car set1) (intersection-set (cdr set1) set2)))
+        (else (intersection-set (cdr set1) set2))))
+#+end_src
+
+#+name: test-solution-2.60
+#+begin_src scheme
+<<element-of-set-duplicated-list>>
+<<intersection-set-duplicated-list>>
+
+(display (intersection-set '(2 3 2 1 3 2 2) '(1 1 2 2 3 3 4 4)))
+#+end_src
+
+#+RESULTS: test-solution-2.60
+: (2 3 2 1 3 2 2)
+
+** Exercise 2.61
+
+Give an implementation of ~adjoin-set~ using the ordered representation. By analogy with ~element-of-set?~ show how to take advantage of the ordering to produce a procedure that requires on the average about half as many steps as with the unordered representation.
+
+*** Solution
+
+#+name: adjoin-set-ordered-list
+#+begin_src scheme
+(define (adjoin-set x set)
+  (cond ((null? set) (list x))
+        ((= x (car set)) set)
+        ((< x (car set)) (cons x set))
+        (else (cons (car set) (adjoin-set x (cdr set))))))
+#+end_src
+
+#+name: test-solution-2.61
+#+begin_src scheme
+<<adjoin-set-ordered-list>>
+
+(printf "~a~n" (adjoin-set 1 '(2 3 4 5)))
+(printf "~a~n" (adjoin-set 3 '(1 2 4 5)))
+(printf "~a~n" (adjoin-set 5 '(1 2 3 4)))
+#+end_src
+
+#+RESULTS: test-solution-2.61
+: (1 2 3 4 5)
+: (1 2 3 4 5)
+: (1 2 3 4 5)
+
+** Exercise 2.62
+
+Give a $\Theta(n)$ implementation of ~union-set~ of sets represented as ordered lists.
+
+*** Solution
+
+#+name: union-set-ordered-list
+#+begin_src scheme
+(define (union-set set1 set2)
+  (cond ((null? set1) set2)
+        ((null? set2) set1)
+        (else
+         (let ((x1 (car set1)) (x2 (car set2)))
+           (cond ((< x1 x2)
+                  (cons x1 (union-set (cdr set1) set2)))
+                 ((> x1 x2)
+                  (cons x2 (union-set set1 (cdr set2))))
+                 (else (cons x1 (union-set (cdr set1) (cdr set2)))))))))
+#+end_src
+
+#+name: test-solution-2.62
+#+begin_src scheme
+<<union-set-ordered-list>>
+
+(printf "~a~n" (union-set '(1 2 3) '(4 5 6)))
+(printf "~a~n" (union-set '(1 2 3 4 5 6) '(4 5 6 7 8 9)))
+#+end_src
+
+#+RESULTS: test-solution-2.62
+: (1 2 3 4 5 6)
+: (1 2 3 4 5 6 7 8 9)
+
+** Exercise 2.63
+
+Each of the following two procedures converts a binary tree to a list.
+
+#+name: tree-to-list-recursive
+#+begin_src scheme
+(define (tree->list-1 tree)
+  (if (null? tree)
+      '()
+      (append (tree->list-1 (left-branch tree))
+              (cons (entry tree)
+                    (tree->list-1
+                     (right-branch tree))))))
+#+end_src
+
+#+name: tree-to-list-iterative
+#+begin_src scheme
+(define (tree->list-2 tree)
+  (define (copy-to-list tree result-list)
+    (if (null? tree)
+        result-list
+        (copy-to-list (left-branch tree)
+                      (cons (entry tree)
+                            (copy-to-list
+                             (right-branch tree)
+                             result-list)))))
+  (copy-to-list tree '()))
+#+end_src
+
+a. Do the two procedures produce the same result for every tree? If not, how do the results differ? What lists do the two procedures produce for the trees in [[https://sarabander.github.io/sicp/html/2_002e3.xhtml#Figure-2_002e16][Figure 2.16]]?
+b. Do the two procedures have the same order of growth in the number of steps required to convert a balanced tree with /n/ elements to a list? If not, which one grows more slowly?
+
+*** Solution
+
+**** Part a
+
+Yes, both procedures will produce the same list for every tree. But the former is recursively and the latter is iterative.
+
+Each tree in [[https://sarabander.github.io/sicp/html/2_002e3.xhtml#Figure-2_002e16][Figure 2.16]] can be represented as the list below respectively:
+
+#+name: trees-in-figure-2-16
+#+begin_src scheme
+(define tree-fig-2-16-1 '(7 (3 (1 () ()) (5 () ())) (9 () (11 () ()))))
+(define tree-fig-2-16-2 '(3 (1 () ()) (7 (5 () ()) (9 () (11 () ())))))
+(define tree-fig-2-16-3 '(5 (3 (1 () ()) ()) (9 (7 () ()) (11 () ()))))
+#+end_src
+
+#+name: sets-via-tree-operations
+#+begin_src scheme
+(define entry car)
+(define left-branch cadr)
+(define right-branch caddr)
+(define make-tree list)
+#+end_src
+
+#+name: convert-tree-to-list
+#+begin_src scheme
+<<tree-to-list-recursive>>
+<<tree-to-list-iterative>>
+<<trees-in-figure-2-16>>
+<<sets-via-tree-operations>>
+
+(printf "~a~n" (tree->list-1 tree-fig-2-16-1))
+(printf "~a~n" (tree->list-2 tree-fig-2-16-1))
+(newline)
+(printf "~a~n" (tree->list-1 tree-fig-2-16-2))
+(printf "~a~n" (tree->list-2 tree-fig-2-16-2))
+(newline)
+(printf "~a~n" (tree->list-1 tree-fig-2-16-3))
+(printf "~a~n" (tree->list-2 tree-fig-2-16-3))
+#+end_src
+
+#+RESULTS: convert-tree-to-list
+: (1 3 5 7 9 11)
+: (1 3 5 7 9 11)
+:
+: (1 3 5 7 9 11)
+: (1 3 5 7 9 11)
+:
+: (1 3 5 7 9 11)
+: (1 3 5 7 9 11)
+
+**** Part b
+
+Let *T(n)* be the time taken by the procedure for a balanced tree with /n/ nodes.
+
+For ~tree->list-1~:
+
+$$T(n)=2*T(\frac{n}{2})+\Theta(\frac{n}{2})$$ (as the procedure ~append~ takes linear time)
+
+Solving above equation, we get $T(n)=\Theta(n*\log{n})$.
+
+For ~tree->list-2~:
+
+$$T(n)=2*T(\frac{n}{2})+\Theta(1)$$
+
+Solving the above equation, we get $T(n)=\Theta(n)$.
+
+** Exercise 2.64
+
+The following procedure ~list->tree~ converts an ordered list to a balanced binary tree. The helper procedure ~partial-tree~ takes as arguments an integer /n/ and list of at least /n/ elements and constructs a balanced tree containing the first /n/ elements of the list. The result returned by ~partial-tree~ is a pair (formed with ~cons~) whose ~car~ is the constructed tree and whose ~cdr~ is the list of elements not included in the tree.
+
+#+name: list-tree-procedure
+#+begin_src scheme
+(define (list->tree elements)
+  (car (partial-tree elements (length elements))))
+(define (partial-tree elts n)
+  (if (= n 0)
+      (cons '() elts)
+      (let ((left-size (quotient (- n 1) 2)))
+        (let ((left-result
+               (partial-tree elts left-size)))
+          (let ((left-tree (car left-result))
+                (non-left-elts (cdr left-result))
+                (right-size (- n (+ left-size 1))))
+            (let ((this-entry (car non-left-elts))
+                  (right-result
+                   (partial-tree
+                    (cdr non-left-elts)
+                    right-size)))
+              (let ((right-tree (car right-result))
+                    (remaining-elts
+                     (cdr right-result)))
+                (cons (make-tree this-entry
+                                 left-tree
+                                 right-tree)
+                      remaining-elts))))))))
+#+end_src
+
+a. Write a short paragraph explaining as clearly as you can how ~partial-tree~ works. Draw the tree produced by ~list->tree~ for the list ~(1 3 5 7 9 11)~.
+b. What is the order of growth in the number of steps required by ~list->tree~ to convert a list of /n/ elements?
+
+*** Solution
+
+**** Part a
+
+The ~partial-tree~ procedure takes $\frac{n-1}{2}$ elements of a list and generates the left subtree. And taking remaining elements to generate a node and the right subtree. Finally, using these three parts to make a tree contains all elements of the list.
+
+#+begin_src scheme
+<<sets-via-tree-operations>>
+<<list-tree-procedure>>
+
+(printf "~a~n" (list->tree '(1 3 5 7 9 11)))
+#+end_src
+
+#+RESULTS:
+: (5 (1 () (3 () ())) (9 (7 () ()) (11 () ())))
+
+#+begin_example
+    5
+   / \
+  1   9
+   \ / \
+   3 7 11
+#+end_example
+
+**** Part b
+
+[[http://community.schemewiki.org/?sicp-ex-2.64][sicp-ex-2.64]]
+
+** Exercise 2.65
+
+Use the results of [[*Exercise 2.63][Exercise 2.63]] and [[*Exercise 2.64][Exercise 2.64]] to give $\Theta(n)$ implementations of ~union-set~ and ~intersection-set~ for sets implemented as (balanced) binary trees.
+
+*** Solution
+
+#+name: union-set-binary-trees
+#+begin_src scheme
+<<sets-via-tree-operations>>
+<<union-set-ordered-list>>
+<<list-tree-procedure>>
+<<tree-to-list-iterative>>
+
+(define (union-set-trees set1 set2)
+  (list->tree (union-set (tree->list-2 set1)
+                         (tree->list-2 set2))))
+#+end_src
+
+#+name: test-solution-2.65
+#+begin_src scheme
+<<union-set-binary-trees>>
+
+(display (union-set-trees (list->tree '(1 2 3 5 7 9 46))
+                          (list->tree '(5 6 10 11 20 23 46))))
+#+end_src
+
+#+RESULTS: test-solution-2.65
+: (7 (3 (1 () (2 () ())) (5 () (6 () ()))) (11 (9 () (10 () ())) (23 (20 () ()) (46 () ()))))
+
+** Exercise 2.66
+
+Implement the ~lookup~ procedure for the case where the set of records is structured as a binary tree, ordered by the numerical values of the keys.
+
+*** Solution
+
+#+name: lookup-procedure
+#+begin_src scheme
+(define (lookup given-key set-of-records)
+  (if (null? set-of-records)
+      false
+      (let ((node-entry (entry set-of-records))
+            (node-key (key (entry set-of-records))))
+        (cond ((= given-key node-key) node-entry)
+              ((< given-key node-key)
+               (lookup given-key (left-branch set-of-records)))
+              ((> given-key node-key)
+               (lookup given-key (right-branch set-of-records)))))))
+#+end_src
+
+** Exercise 2.67
+
+Define an encoding tree and a sample message:
+
+#+name: sample-tree-definition
+#+begin_src scheme
+(define sample-tree
+  (make-code-tree (make-leaf 'A 4)
+                  (make-code-tree
+                   (make-leaf 'B 2)
+                   (make-code-tree
+                    (make-leaf 'D 1)
+                    (make-leaf 'C 1)))))
+(define sample-message '(0 1 1 0 0 1 0 1 0 1 1 1 0))
+#+end_src
+
+Use the ~decode~ procedure to decode the message, and give the result.
+
+*** Solution
+
+#+name: huffman-trees-operations
+#+begin_src scheme
+(define (make-leaf symbol weight) (list 'leaf symbol weight))
+(define (leaf? object) (eq? (car object) 'leaf))
+(define (symbol-leaf x) (cadr x))
+(define (weight-leaf x) (caddr x))
+(define (symbols tree)
+  (if (leaf? tree)
+      (list (symbol-leaf tree))
+      (caddr tree)))
+(define (weight tree)
+  (if (leaf? tree)
+      (weight-leaf tree)
+      (cadddr tree)))
+(define (make-code-tree left right)
+  (list left
+        right
+        (append (symbols left) (symbols right))
+        (+ (weight left) (weight right))))
+(define (left-branch tree) (car tree))
+(define (right-branch tree) (cadr tree))
+(define (adjoin-set x set)
+  (cond ((null? set) (list x))
+        ((< (weight x) (weight (car set))) (cons x set))
+        (else (cons (car set)
+                    (adjoin-set x (cdr set))))))
+(define (make-leaf-set pairs)
+  (if (null? pairs)
+      '()
+      (let ((pair (car pairs)))
+        (adjoin-set (make-leaf (car pair)    ; symbol
+                               (cadr pair))  ; frequency
+                    (make-leaf-set (cdr pairs))))))
+#+end_src
+
+#+name: decoding-procedure
+#+begin_src scheme
+(define (decode bits tree)
+  (define (decode-1 bits current-branch)
+    (if (null? bits)
+        '()
+        (let ((next-branch
+               (choose-branch (car bits) current-branch)))
+          (if (leaf? next-branch)
+              (cons (symbol-leaf next-branch)
+                    (decode-1 (cdr bits) tree))
+              (decode-1 (cdr bits) next-branch)))))
+  (decode-1 bits tree))
+(define (choose-branch bit branch)
+  (cond ((= bit 0) (left-branch branch))
+        ((= bit 1) (right-branch branch))
+        (else (error "bad bit:  CHOOSE-BRANCH" bit))))
+#+end_src
+
+#+begin_src scheme
+<<huffman-trees-operations>>
+<<decoding-procedure>>
+<<sample-tree-definition>>
+
+(display (decode sample-message sample-tree))
+#+end_src
+
+#+RESULTS:
+: (A D A B B C A)
+
+** Exercise 2.68
+
+The ~encode~ procedure takes as arguments a message and a tree and produces the list of bits that gives the encoded message.
+
+#+name: encoding-procedure
+#+begin_src scheme
+(define (encode message tree)
+  (if (null? message)
+      '()
+      (append (encode-symbol (car message) tree)
+              (encode (cdr message) tree))))
+#+end_src
+
+~encode-symbol~ is a procedure, which you must write, that returns the list of bits that encodes a given symbol according to a given tree. You should design ~encode-symbol~ so that it signals an error if the symbol is not in the tree at all. Test your procedure by encoding the result you obtained in [[*Exercise 2.67][Exercise 2.67]] with the sample tree and seeing whether it is the same as the original sample message.
+
+*** Solution
+
+#+name: encode-symbol-procedure
+#+begin_src scheme
+(define (encode-symbol message tree)
+  (if (leaf? tree)
+      (if (eq? message (symbol-leaf tree))
+          '()
+          (error "bad message: ENCODE-SYMBOL" message))
+      (let ((left (left-branch tree)))
+        (if (memq message (symbols left))
+            (cons 0 (encode-symbol message left))
+            (cons 1 (encode-symbol message (right-branch tree)))))))
+#+end_src
+
+#+name: test-solution-2.68
+#+begin_src scheme
+<<huffman-trees-operations>>
+<<sample-tree-definition>>
+<<encoding-procedure>>
+<<encode-symbol-procedure>>
+
+(display (encode '(A D A B B C A) sample-tree))
+#+end_src
+
+#+RESULTS: test-solution-2.68
+: (0 1 1 0 0 1 0 1 0 1 1 1 0)
+
+** Exercise 2.69
+
+The following procedure takes as its argument a list of symbol-frequency pairs (where no symbol appears in more than one pair) and generates a Huffman encoding tree according to the Huffman algorithm.
+
+#+name: generate-huffman-tree-procedure
+#+begin_src scheme
+(define (generate-huffman-tree pairs)
+  (successive-merge (make-leaf-set pairs)))
+#+end_src
+
+~make-leaf-set~ is the procedure given above that transforms the list of pairs into an ordered set of leaves. ~successive-merge~ is the procedure you must write, using ~make-code-tree~ to successively merge the smallest-weight elements of the set until there is only one element left, which is the desired Huffman tree. (This procedure is slightly tricky, but not really complicated. If you find yourself designing a complex procedure, then your are almost certainly doing something wrong. You can take significant advantage of the fact that we are using an ordered set representation.)
+
+*** Solution
+
+#+name: successive-merge-procedure
+#+begin_src scheme
+(define (successive-merge leaves)
+  (if (null? (cdr leaves))
+      (car leaves)
+      (successive-merge
+       (adjoin-set (make-code-tree (car leaves) (cadr leaves)) (cddr leaves)))))
+#+end_src
+
+#+name: test-solution-2.69
+#+begin_src scheme
+<<huffman-trees-operations>>
+<<generate-huffman-tree-procedure>>
+<<successive-merge-procedure>>
+
+(display (generate-huffman-tree '((A 8) (B 3) (C 1) (D 1) (E 1) (F 1) (G 1) (H 1))))
+#+end_src
+
+#+RESULTS: test-solution-2.69
+: ((leaf A 8) ((((leaf H 1) (leaf G 1) (H G) 2) ((leaf F 1) (leaf E 1) (F E) 2) (H G F E) 4) (((leaf D 1) (leaf C 1) (D C) 2) (leaf B 3) (D C B) 5) (H G F E D C B) 9) (A H G F E D C B) 17)
+
+** Exercise 2.70
+
+The following eight-symbol alphabet with associated relative frequencies was designed to efficiently encode the lyrics of 1950s rock songs. (Note that the "symbols" of an "alphabet" need not be individual letters.)
+
+\begin{table}[]
+{\color{white}\begin{tabular}{lrlrlrlr}
+\texttt{A} & \texttt{2} & \texttt{GET} & \texttt{2} & \texttt{SHA} & \texttt{3} & \texttt{WAH} & \texttt{1} \\
+\texttt{BOOM} & \texttt{1} & \texttt{JOB} & \texttt{2} & \texttt{NA} & \texttt{16} & \texttt{YIP} & \texttt{9}
+\end{tabular}}
+\end{table}
+
+Use ~generate-huffman-tree~ ([[*Exercise 2.69][Exercise 2.69]]) to generate a corresponding Huffman tree, and use ~encode~ ([[*Exercise 2.68][Exercise 2.68]]) to encode the following message:
+
+#+begin_example
+Get a job
+Sha na na na na na na na na
+Get a job
+Sha na na na na na na na na
+Wah yip yip yip yip yip yip yip yip yip
+Sha boom
+#+end_example
+
+How many bits are required for the encoding? What is the smallest number of bits that would be needed to encode this song if we used a fixed-length code for the eight-symbol alphabet?
+
+*** Solution
+
+#+begin_src scheme
+<<huffman-trees-operations>>
+<<encoding-procedure>>
+<<encode-symbol-procedure>>
+<<generate-huffman-tree-procedure>>
+<<successive-merge-procedure>>
+
+(define rock-tree (generate-huffman-tree '((A 2) (GET 2) (SHA 3) (WAH 1) (BOOM 1) (JOB 2) (NA 16) (YIP 9))))
+(define rock-song '(GET A JOB SHA NA NA NA NA NA NA NA NA GET A JOB SHA NA NA NA NA NA NA NA NA WAH YIP YIP YIP YIP YIP YIP YIP YIP YIP SHA BOOM))
+(define rock-encoded-song (encode rock-song rock-tree))
+(printf "~a~n" rock-tree)
+(printf "~a~n" rock-encoded-song)
+(printf "Total bits: ~a~n" (length rock-encoded-song))
+(printf "Fixed-length encoding bits: ~a~n" (* (log 8 2) (length rock-song)))
+#+end_src
+
+#+RESULTS:
+: ((leaf NA 16) ((leaf YIP 9) (((leaf A 2) ((leaf BOOM 1) (leaf WAH 1) (BOOM WAH) 2) (A BOOM WAH) 4) ((leaf SHA 3) ((leaf JOB 2) (leaf GET 2) (JOB GET) 4) (SHA JOB GET) 7) (A BOOM WAH SHA JOB GET) 11) (YIP A BOOM WAH SHA JOB GET) 20) (NA YIP A BOOM WAH SHA JOB GET) 36)
+: (1 1 1 1 1 1 1 0 0 1 1 1 1 0 1 1 1 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 0 0 1 1 1 1 0 1 1 1 0 0 0 0 0 0 0 0 0 1 1 0 1 1 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 1 1 0 1 1 0 1 0)
+: Total bits: 84
+: Fixed-length encoding bits: 108.0
+
+** Exercise 2.71
+
+Suppose we have a Huffman tree for an alphabet of /n/ symbols, and that the relative frequencies of the symbols are $1,2,4,\dots,2^{n-1}$. Sketch the tree for $n=5$; for $n=10$. In such a tree (for general /n/) how many bits are required to encode the most frequent symbol? The least frequent symbol?
+
+*** Solution
+
+#+name: sketch-n-5-tree
+#+begin_example
+ {A B C D E} 31
+ /      \
+A 16  {B C D E} 15
+      /      \
+     B 8   {C D E} 7
+           /     \
+          C 4   {D E} 3
+                /   \
+               D 2  E 1
+#+end_example
+
+To encode the most frequent symbol, we only need one bit. For the least frequent symbol, we need $n-1$ bits.
+
+** Exercise 2.72
+
+Consider the encoding procedure that you designed in [[*Exercise 2.68][Exercise 2.68]]. What is the order of growth in the number of steps needed to encode a symbol? Be sure to include the number of steps needed to search the symbol list at each node encountered. To answer this question in general is difficult. Consider the special case where the relative frequencies of the /n/ symbols are as described in [[*Exercise 2.71][Exercise 2.71]], and give the order of growth (as a function of /n/) of the number of steps needed to encode the most frequent and least frequent symbols in the alphabet.
+
+*** Solution
+
+[[http://community.schemewiki.org/?sicp-ex-2.72][sicp-ex-2.72]]
+
+** Exercise 2.73
+
+Section 2.3.2 described a program that performs symbolic differentiation:
+
+#+begin_src scheme
+(define (deriv exp var)
+  (cond ((number? exp) 0)
+        ((variable? exp)
+         (if (same-variable? exp var) 1 0))
+        ((sum? exp)
+         (make-sum (deriv (addend exp) var)
+                   (deriv (augend exp) var)))
+        ((product? exp)
+         (make-sum (make-product
+                    (multiplier exp)
+                    (deriv (multiplicand exp) var))
+                   (make-product
+                    (deriv (multiplier exp) var)
+                    (multiplicand exp))))
+        <more rules can be added here>
+        (else (error "unknown expression type: DERIV" exp))))
+#+end_src
+
+We can regard this program as performing a dispatch on the type of the expression to be differentiated. In this situation the "type tag" of the datum is the algebraic operator symbol (such as ~+~) and the operation being performed is ~deriv~. We can transform this program into data-directed style by rewriting the basic derivative procedure as
+
+#+begin_src scheme
+(define (deriv exp var)
+  (cond ((number? exp) 0)
+        ((variable? exp) (if (same-variable? exp var) 1 0))
+        (else ((get 'deriv (operator exp))
+               (operands exp) var))))
+(define (operator exp) (car exp))
+(define (operands exp) (cdr exp))
+#+end_src
+
+a. Explain what was done above. Why can't we assimilate the predicates ~number?~ and ~variable?~ into the data-directed dispatch?
+b. Write the procedures for derivatives of sums and products, and the auxiliary code required to install them in the table used by the program above.
+c. Choose any additional differentiation rule that you like, such as the one for exponents ([[*Exercise 2.56][Exercise 2.56]]), and install it in this data-directed system.
+d. In this simple algebraic manipulator the type of an expression is the algebraic operator that binds it together. Suppose, however, we indexed the procedures in the opposite way, so that the dispatch line in ~deriv~ looked like
+
+   #+begin_src scheme
+((get (operator exp) 'deriv) (operands exp) var)
+   #+end_src
+
+   What corresponding changes to the derivative system are required?
+
+*** Solution
+
+**** Part a
+
+The ~deriv~ procedure checks the expression first. If an expression a number, the procedure will return 0. If a variable, the procedure will check if it is the desired variable. Otherwise, this procedure looks the ~deriv~, operator entry in the table and returns the item found there. In conclusion, the predicates ~number~ and ~variable~ aren't derivative rules, so assimilating those into the data-directed dispatch doesn't make sense.
+
+**** Part b
+
+#+name: install-derivatives-sums-products
+#+begin_src scheme
+(define (install-derivatives-package)
+  ;; internal procedures
+  (define (=number? exp num) (and (number? exp) (= exp num)))
+  (define (addend s) (cadr s))
+  (define (augend s) (caddr s))
+  (define (make-sum a1 a2)
+    (cond ((=number? a1 0) a2)
+          ((=number? a2 0) a1)
+          ((and (number? a1) (number? a2))
+           (+ a1 a2))
+          (else (list '+ a1 a2))))
+  (define (multiplier p) (cadr p))
+  (define (multiplicand p) (caddr p))
+  (define (make-product m1 m2)
+    (cond ((or (=number? m1 0) (=number? m2 0)) 0)
+          ((=number? m1 1) m2)
+          ((=number? m2 1) m1)
+          ((and (number? m1) (number? m2)) (* m1 m2))
+          (else (list '* m1 m2))))
+
+  ;; interface to the rest of the system
+  (put 'deriv '+
+       (lambda (operands var)
+         (make-sum (deriv (addenv operands) var)
+                   (deriv (augend operands) var))))
+  (put 'deriv '*
+       (lambda (operands var)
+         (make-sum
+          (make-product
+           (multiplier operands)
+           (deriv (multiplicand operands) var))
+          (make-product
+           (deriv (multiplier operands) var)
+           (multiplicand operands)))))
+  'done)
+#+end_src
+
+**** Part c
+
+#+begin_src scheme
+(define (install-derivatives-package)
+  ;; internal procedures
+  (define (=number? exp num) (and (number? exp) (= exp num)))
+  (define (addend s) (cadr s))
+  (define (augend s) (caddr s))
+  (define (make-sum a1 a2)
+    (cond ((=number? a1 0) a2)
+          ((=number? a2 0) a1)
+          ((and (number? a1) (number? a2))
+           (+ a1 a2))
+          (else (list '+ a1 a2))))
+  (define (multiplier p) (cadr p))
+  (define (multiplicand p) (caddr p))
+  (define (make-product m1 m2)
+    (cond ((or (=number? m1 0) (=number? m2 0)) 0)
+          ((=number? m1 1) m2)
+          ((=number? m2 1) m1)
+          ((and (number? m1) (number? m2)) (* m1 m2))
+          (else (list '* m1 m2))))
+  (define (base e) (cadr e))
+  (define (exponent e) (caddr e))
+  (define (make-exponentiation b pow)
+    (cond ((=number? pow 0) 1)
+          ((=number? pow 1) b)
+          ((and (number? b) (number? pow)) (expt b pow))
+          (else (list '** b pow))))
+
+  ;; interface to the rest of the system
+  (put 'deriv '+
+       (lambda (operands var)
+         (make-sum (deriv (addenv operands) var)
+                   (deriv (augend operands) var))))
+  (put 'deriv '*
+       (lambda (operands var)
+         (make-sum
+          (make-product
+           (multiplier operands)
+           (deriv (multiplicand operands) var))
+          (make-product
+           (deriv (multiplier operands) var)
+           (multiplicand operands)))))
+  (put 'deriv '**
+       (lambda (operands var)
+         (make-product
+          (make-product (exponent operands)
+                        (make-exponentiation (base operands)
+                                             (make-sum (exponent operands) '-1)))
+          (deriv (base operands) var))))
+  'done)
+#+end_src
+
+**** Part d
+
+The only changes needed are to the installation of the procedures into the generic dispatch table:
+
+#+begin_src scheme
+(put '** 'deriv (lambda (operands var) <exponentiation>))
+(put '* 'deriv (lambda (operands var) <product>))
+(put '+ 'deriv (lambda (operands var) <sum>))
+#+end_src
+
+** Exercise 2.74
+
+Insatiable Enterprises, Inc., is a highly decentralized conglomerate company consisting of a large number of independent divisions located all over the world. The company's computer facilities have just been interconnected by means of a clever network-interfacing scheme that makes the entire network appear to any user to be a single computer. Insatiable's president, in her first attempt to exploit the ability of the network to extract administrative information from division files, is dismayed to discover that, although all the division files have been implemented as data structures in Scheme, the particular data structure used varies from division to division. A meeting of division managers is hastily called to search for a strategy to integrate the files that will satisfy headquarters' needs while preserving the existing autonomy of the divisions.
+
+Show how such a strategy can be implemented with data-directed programming. As an example, suppose that each division's personnel records consist of a single file, which contains a set of records keyed on employees' names. The structure of the set varies from division to division. Furthermore, each employee's record is itself a set (structured differently from division to division) that contains information keyed under identifiers such as ~address~ and ~salary~. In particular:
+
+a. Implement for headquarters a ~get-record~ procedure that retrieves a specified employee's record from a specified personnel file. The procedure should be applicable to any division's file. Explain how the individual divisions' files should be structured. In particular, what type information must be supplied?
+b. Implement for headquarters a ~get-salary~ procedure that returns the salary information from a given employee's record from any division's personnel file. How should the record be structured in order to make this operation work?
+c. Implement for headquarters a ~find-employee-record~ procedure. This should search all the divisions' files for the record of a given employee and return the record. Assume that this procedure takes as arguments an employee's name and a list of all the divisions' files.
+d. When Insatiable takes over a new company, what changes must be made in order to incorporate the new personnel information into the central system?
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-2.74][sicp-ex-2.74]]
+- [[https://wizardbook.wordpress.com/2010/12/08/exercise-2.74/][Exercise 2.74]]
+
+** Exercise 2.75
+
+Implement the constructor ~make-from-mag-ang~ in message-passing style. This procedure should be analogous to the ~make-from-real-imag~ procedure given above.
+
+*** Solution
+
+#+begin_src scheme
+(define (make-from-mag-ang r a)
+  (define (dispatch op)
+    (cond ((eq? op 'real-part) (* r (cos a)))
+          ((eq? op 'imag-part) (* r (sin a)))
+          ((eq? op 'magnitude) r)
+          ((eq? op 'angle) a)
+          (else (error "Unknown op: MAKE-FROM-MAG-ANG" op))))
+  dispatch)
+#+end_src
+
+** Exercise 2.76
+
+As a large system with generic operations evolves, new types of data objects or new operations may be needed. For each of the three strategies--generic operations with explicit dispatch, data-directed style, and message-passing style--describe the changes that must be made to a system in order to add new types or new operations. Which organization would be most appropriate for a system in which new types must often be added? Which would be most appropriate for a system in which new operations must often be added?
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-2.76][sicp-ex-2.76]]
+- [[https://wizardbook.wordpress.com/2010/12/08/exercise-2-76/][Exercise 2.76]]
+
+** Exercise 2.77
+
+Louis Reasoner tries to evaluate the expression ~(magnitude z)~ where ~z~ is the object shown in [[https://sarabander.github.io/sicp/html/2_002e5.xhtml#Figure-2_002e24][Figure 2.24]]. To his surprise, instead of the answer 5 he gets an error message from ~apply-generic~, saying there is no method for the operation ~magnitude~ on the types ~(complex)~. He shows this interaction to Alyssa P. Hacker, who says "The problem is that the complex-number selectors were never defined for ~complex~ numbers, just for ~polar~ and ~rectangular~ numbers. All you have to do to make this work is add the following to the ~complex~ package:"
+
+#+begin_src scheme
+(put 'real-part '(complex) real-part)
+(put 'imag-part '(complex) imag-part)
+(put 'magnitude '(complex) magnitude)
+(put 'angle '(complex) angle)
+#+end_src
+
+Describe in detail why this works. As an example, trace through all the procedures called in evaluating the expression ~(magnitude z)~ where ~z~ is the object shown in [[https://sarabander.github.io/sicp/html/2_002e5.xhtml#Figure-2_002e24][Figure 2.24]]. In particular, how many times is ~apply-generic~ invoked? What procedure is dispatched to in each case?
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-2.77][sicp-ex-2.77]]
+- [[https://wizardbook.wordpress.com/2010/12/08/exercise-2-77/][Exercise 2.77]]
+
+** Exercise 2.78
+
+The internal procedures in the ~scheme-number~ package are essentially nothing more than calls to the primitive procedures ~+~, ~-~ , etc. It was not possible to use the primitives of the language directly because our type-tag system requires that each data object have a type attached to it. In fact, however, all Lisp implementations do have a type system, which they use internally. Primitive predicates such as ~symbol?~ and ~number?~ determine whether data objects have particular types. Modify the definitions of ~type-tag~, ~contents~ , and ~attach-tag~ from Section 2.4.2 so that our generic system takes advantage of Scheme's internal type system. That is to say, the system should work as before except that ordinary numbers should be represented simply as Scheme numbers rather than as pairs whose ~car~ is the symbol ~scheme-number~.
+
+*** Solution
+
+#+name: attach-tag-procedure
+#+begin_src scheme
+(define (attach-tag . args)
+  (if (eq? type-tag 'scheme-number)
+      contents
+      (cons type-tag contents)))
+#+end_src
+
+#+name: type-tag-procedure
+#+begin_src scheme
+(define (type-tag datum)
+  (cond ((number? datum) 'scheme-number)
+        ((pair? datum) (car datum))
+        (else (error "Bad tagged datum: TYPE-TAG" datum))))
+#+end_src
+
+#+name: contents-procedure
+#+begin_src scheme
+(define (contents datum)
+  (cond ((number? datum) datum)
+        ((pair? datum) (cdr datum))
+        (else (error "Bad tagged datum: CONTENTS" datum))))
+#+end_src
+
+** Exercise 2.79
+
+Define a generic equality predicate ~equ?~ that tests the equality of two numbers, and install it in the generic arithmetic package. This operation should work for ordinary numbers, rational numbers, and complex numbers.
+
+*** Solution
+
+#+name: equality-predicate
+#+begin_src scheme
+(define (install-scheme-number-package)
+  ...
+  (put 'equ? '(scheme-number scheme-number)
+       (lambda (x y) (= x y)))
+  'done)
+(define (install-rational-package)
+  ...
+  (put 'equ? '(rational rational)
+       (lambda (x y) (= (* (numer x) (denom y))
+                        (* (denom x) (numer y)))))
+  'done)
+(define (install-complex-package)
+  (put 'equ? '(complex complex)
+       (lambda (x y) (and (= (real-part x) (real-part y))
+                          (= (imag-part x) (imag-part y)))))
+  'done)
+(define (equ? x y) (apply-generic 'equ? x y))
+#+end_src
+
+** Exercise 2.80
+
+Define a generic predicate ~=zero?~ that tests if its argument is =zero=, and install it in the generic arithmetic package. This operation should work for ordinary numbers, rational numbers, and complex numbers.
+
+*** Solution
+
+#+name: zero-predicate
+#+begin_src scheme
+(define (install-scheme-number-package)
+  ...
+  (put '=zero? '(scheme-number)
+       (lambda (n) (= n 0)))
+  'done)
+(define (install-rational-package)
+  ...
+  (put '=zero? '(rational)
+       (lambda (n) (and (= (numer n) 0)
+                        (not (= (denom n) 0)))))
+  'done)
+(define (install-complex-package)
+  ...
+  (put '=zero? '(complex)
+       (lambda (n) (= (real-part n) (imag-part n) 0)))
+  'done)
+(define (=zero? n) (apply-generic '=zero? n))
+#+end_src
+
+** Exercise 2.81
+
+Louis Reasoner has noticed that ~apply-generic~ may try to coerce the arguments to each other's type even if they already have the same type. Therefore, he reasons, we need to put procedures in the coercion table to /coerce/ arguments of each type to their own type. For example, in addition to the ~scheme-number->complex~ coercion shown above, he would do:
+
+#+begin_src scheme
+(define (scheme-number->scheme-number n) n)
+(define (complex->complex z) z)
+(put-coercion 'scheme-number
+              'scheme-number
+              scheme-number->scheme-number)
+(put-coercion 'complex 'complex complex->complex)
+#+end_src
+
+a. With Louis's coercion procedures installed, what happens if ~apply-generic~ is called with two arguments of type ~scheme-number~ or two arguments of type ~complex~ for an operation that is not found in the table for those types? For example, assume that we've defined a generic exponentiation operation:
+
+   #+begin_src scheme
+(define (exp x y) (apply-generic 'exp x y))
+   #+end_src
+
+   and have put a procedure for exponentiation in the Scheme-number package but not in any other package:
+
+   #+begin_src scheme
+;; following added to Scheme-number package
+(put 'exp '(scheme-number scheme-number)
+     (lambda (x y) (tag (expt x y))))
+     ; using primitive ~expt~
+   #+end_src
+
+   What happens if we call ~exp~ with two complex numbers as arguments?
+
+b. Is Louis correct that something had to be done about coercion with arguments of the same type, or does ~apply-generic~ work correctly as is?
+
+c. Modify ~apply-generic~ so that it doesn't try coercion if the two arguments have the same type.
+
+*** Solution
+
+**** Part a
+
+If Louis installs his coercion procedures into the operations table, ~apply-generic~ will stuck into an infinite loop.
+
+**** Part b
+
+~apply-generic~ works but only when the coerce procedures are installed in the operation table, otherwise it will fail as designed.
+
+**** Part c
+
+#+name: apply-generic-procedure-with-coercion
+#+begin_src scheme
+(define (apply-generic op . args)
+  (define (raise-error type-tags)
+    (error "No method for these types" (list op type-tags)))
+  (let ((type-tags (map type-tag args)))
+    (let ((proc (get op type-tags)))
+      (if proc
+          (apply proc (map contents args))
+          (if (= (length args) 2)
+              (let ((type1 (car type-tags))
+                    (type2 (cadr type-tags))
+                    (a1 (car args))
+                    (a2 (cadr args)))
+                (if (eq? type1 type2)
+                    (raise-error type-tags)
+                    (let ((t1->t2 (get-coercion type1 type2))
+                          (t2->t1 (get-coercion type2 type1)))
+                      (cond (t1->t2
+                             (apply-generic op (t1->t2 a1) a2))
+                            (t2->t1
+                             (apply-generic op a1 (t2->t1 a2)))
+                            (else (raise-error type-tags))))))
+              (raise-error type-tags))))))
+#+end_src
+
+** Exercise 2.82
+
+Show how to generalize ~apply-generic~ to handle coercion in the general case of multiple arguments. One strategy is to attempt to coerce all the arguments to the type of the first argument, then to the type of the second argument, and so on. Give an example of a situation where this strategy (and likewise the two-argument version given above) is not sufficiently general. (Hint: Consider the case where there are some suitable mixed-type operations present in the table that will not be tried.)
+
+*** Solution
+
+#+name: apply-generic-procedure-multiple-arguments
+#+begin_src scheme
+(define (apply-generic op . args)
+  (define (raise-error type-tags)
+    (error "No method for these types" (list op type-tags)))
+  (define (any-false? items)
+    (cond ((null? items) false)
+          ((not (car items)) true)
+          (else (any-false? (cdr items)))))
+  (define (coerce type-tags args)
+    (define (iter tags)
+      (if (null? tags)
+          false
+          (let ((type-to (car tags)))
+            (let ((coercions
+                   (map (lambda (type-from)
+                          (if (eq? type-from type-to)
+                              (lambda (x) x) ; identity "coercion" for same-types
+                              (get-coercion type-from type-to)))
+                        type-tags)))
+              (if (any-false? coercions)
+                  (iter (cdr tags))
+                  (map (lambda (coercion arg) (coercion arg))
+                       coercions
+                       args))))))
+    (iter type-tags))
+  (let ((type-tags (map type-tag args)))
+    (let ((proc (get op type-tags)))
+      (if proc
+          (apply proc (map contents args))
+          (let ((coerced-args (coerce type-tags args)))
+            (if coerced-args
+                (let ((coerced-type-tags (map type-tag coerced-args)))
+                  (let ((new-proc (get op coerced-type-tags)))
+                    (apply new-proc (map contents coerced-args))))
+                (raise-error type-tags)))))))
+#+end_src
+
+** Exercise 2.83
+
+Suppose you are designing a generic arithmetic system for dealing with the tower of types shown in [[https://sarabander.github.io/sicp/html/2_002e5.xhtml#Figure-2_002e25][Figure 2.25]]: integer, rational, real, complex. For each type (except complex), design a procedure that raises objects of that type one level in the tower. Show how to install a generic ~raise~ operation that will work for each type (except complex).
+
+*** Solution
+
+#+name: raise-operation-procedure
+#+begin_src scheme
+(define (install-scheme-number-package)
+  ...
+  (put 'raise 'scheme-number
+       (lambda (x) (make-rational x 1)))
+  'done)
+(define (install-rational-package)
+  ...
+  (put 'raise 'rational
+       (lambda (x) (make-real (/ (numer x) (denom x)))))
+  'done)
+(define (install-real-package)
+  ...
+  (put 'raise 'real
+       (lambda (x) (make-from-real-imag x 0)))
+  'done)
+(define (raise x) (apply-generic 'raise x))
+#+end_src
+
+#+RESULTS: raise-operation-procedure
+: ...: ellipses not allowed as an expression
+:   in: ...
+:
+
+** Exercise 2.84
+
+Using the ~raise~ operation of [[*Exercise 2.83][Exercise 2.83]], modify the ~apply-generic~ procedure so that it coerces its arguments to have the same type by the method of successive raising, as discussed in this section. You will need to devise a way to test which of two types is higher in the tower. Do this in a manner that is "compatible" with the rest of the system and will not lead to problems in adding new levels to the tower.
+
+*** Solution
+
+#+name: solution-2-84
+#+begin_src scheme
+(define (type-level type)
+  (define tower '(integer rational real))
+  (define (get-level types level)
+    (if (eq? type (car types))
+        level
+        (get-level (cdr types) (+ level 1))))
+  (if (member type tower)
+      (get-level tower 0)
+      -1))
+(define (apply-generic op . args)
+  (define (raise-error type-tags)
+    (error "No method for these types" (list op type-tags)))
+  (let ((type-tags (map type-tag args)))
+    (let ((proc (get op type-tags)))
+      (if proc
+          (apply proc (map contents args))
+          (if (= (length args) 2)
+              (let ((type1 (car type-tags))
+                    (type2 (cadr type-tags))
+                    (a1 (car args))
+                    (a2 (cadr args)))
+                (let ((level1 (type-level type1))
+                      (level2 (type-level type2)))
+                  (cond ((or (= level1 -1) (= level2 -1) (= level1 level2))
+                         (raise-error type-tags))
+                        ((< level1 level2)
+                         (apply-generic op (apply-generic 'raise a1) a2))
+                        ((> level1 level2)
+                         (apply-generic op a1 (apply-generic 'raise a2))))))
+              (raise-error type-tags))))))
+#+end_src
+
+** Exercise 2.85
+
+This section mentioned a method for "simplifying" a data object by lowering it in the tower of types as far as possible. Design a procedure ~drop~ that accomplishes this for the tower described in [[*Exercise 2.83][Exercise 2.83]]. The key is to decide, in some general way, whether an object can be lowered. For example, the complex number $1.5+0i$ can be lowered as far as ~real~, the complex number $1+0i$ can be lowered as far as ~integer~, and the complex number ~2+3i~ cannot be lowered at all. Here is a plan for determining whether an object can be lowered: Begin by defining a generic operation ~project~ that "pushes" an object down in the tower. For example, projecting a complex number would involve throwing away the imaginary part. Then a number can be dropped if, when we ~project~ it and ~raise~ the result back to the type we started with, we end up with something equal to what we started with. Show how to implement this idea in detail, by writing a ~drop~ procedure that drops an object as far as possible. You will need to design the various projection operations[fn:11] and install ~project~ as a generic operation in the system. You will also need to make use of a generic equality predicate, such as described in [[*Exercise 2.79][Exercise 2.79]]. Finally, use ~drop~ to rewrite ~apply-generic~ from [[*Exercise 2.84][Exercise 2.84]] so that it "simplifies" its answers.
+
+*** Solution
+
+#+name: project-procedure
+#+begin_src scheme
+(define (install-rational-package)
+  ...
+  (put 'project 'rational
+       (lambda (n) (make-scheme-number (round (/ (numer n) (demon n))))))
+  'done)
+(define (install-real-package)
+  ...
+  (put 'project 'real
+       (lambda (n)
+         (let ((exact (inexact->exact r)))
+           (cond ((integer? exact) (make-rational exact 1))
+                 ((rational? exact) (make-rational (numerator exact) (denominator exact)))
+                 (else (make-rational (truncate exact) 1))))))
+  'done)
+(define (install-complex-package)
+  ...
+  (put 'project 'complex
+       (lambda (n) (make-real (real-part n))))
+  'done)
+(define (project object) (apply-generic 'project object))
+#+end_src
+
+#+name: drop-procedure
+#+begin_src scheme
+(define (drop object)
+  (let ((projected (project object)))
+    (if (equ? object (raise projected))
+        (drop projected)
+        object)))
+#+end_src
+
+#+name: simplifies-apply-generic-procedure
+#+begin_src scheme
+(define (apply-generic op . args)
+  (define (raise-error type-tags)
+    (error "No method for these types" (list op type-tags)))
+  (let ((type-tags (map type-tag args)))
+    (let ((proc (get op type-tags)))
+      (if proc
+          (apply proc (map contents args))
+          (if (= (length args) 2)
+              (apply proc (list (drop (car args))
+                                (drop (cadr args))))
+              (raise-error type-tags))))))
+#+end_src
+
+** Exercise 2.86
+
+Suppose we want to handle complex numbers whose real parts, imaginary parts, magnitudes, and angles can be either ordinary numbers, rational numbers, or other numbers we might wish to add to the system. Describe and implement the changes to the system needed to accommodate this. You will have to define operations such as ~sine~ and ~cosine~ that are generic over ordinary numbers and rational numbers.
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-2.86][sicp-ex-2.86]]
+- [[https://wizardbook.wordpress.com/2010/12/09/exercise-2-86/][Exercise 2.86]]
+
+** Exercise 2.87
+
+Install ~=zero?~ for polynomials in the generic arithmetic package. This will allow ~adjoin-term~ to work for polynomials with coefficients that are themselves polynomials.
+
+*** Solution
+
+#+begin_src scheme
+(define (install-polynomial-package)
+  ...
+  (define (terms-zero? terms)
+    (if (empty-termlist? terms)
+        true
+        (and (=zero? (coeff (first-term terms)))
+             (terms-zero? (rest-terms terms)))))
+  (put '=zero? '(polynomial)
+       (lambda (p) (terms-zero? (term-list p))))
+  'done)
+#+end_src
+
+** Exercise 2.88
+
+Extend the polynomial system to include subtraction of polynomials. (Hint: You may find it helpful to define a generic negation operation.)
+
+*** Solution
+
+#+name: sub-poly-procedure
+#+begin_src scheme
+(define (sub-poly p1 p2)
+  (if (same-variable? (variable p1) (variable p2))
+      (make-poly (variable p1)
+                 (add-terms (term-list p1)
+                            (negate-terms (term-list p2))))
+      (error "Polys not in same var: SUB-POLY" (list p1 p2))))
+#+end_src
+
+#+name: negate-terms-procedure
+#+begin_src scheme
+(define (negate-terms term-list)
+  (map (lambda (t) (make-term (order t) (- (coeff t)))) term-list))
+#+end_src
+
+#+begin_src scheme
+(put 'sub '(polynomial polynomial)
+     (lambda (p1 p2) (tag (sub-poly p1 p2))))
+(put 'negate '(polynomial)
+     (lambda (p) (tag (make-poly (variable p)
+                                 (negate-terms (term-list p))))))
+#+end_src
+
+** Exercise 2.89
+
+Define procedures that implement the term-list representation described above as appropriate for dense polynomials.
+
+*** Solution
+
+#+begin_example
+Dense polynomials
+
+(1 2 0 3 -2 -5)
+
+Term representation
+
+(1 0 0 0 0 0)
+(2 0 0 0 0)
+(0 0 0 0)
+(3 0 0)
+(-2 0)
+(-5)
+#+end_example
+
+
+#+name: dense-poly-term-list-procedures
+#+begin_src scheme
+(define (adjoin-term term term-list)
+  (if (and (= (length term) 1)
+           (=zero? (coeff term)))
+      term-list
+      (let ((t (first-term term-list))
+            (rest (rest-term term-list)))
+        (let ((c1 (coeff term))
+              (o1 (order term))
+              (c2 (coeff t))
+              (o2 (order t)))
+          (cond ((= o1 o2) (cons (add c1 c2) rest)
+                ((< o1 o2) (cons c2 (adjoin-term term rest)))
+                (else (cons c1 (adjoin-term (cdr term) term-list))))))))
+(define (the-empty-termlist) '())
+(define (first-term term-list)
+  (cons (car term-list) (map (lambda (t) 0) (cdr term-list))))
+(define (rest-term term-list) (cdr term-list))
+(define (empty-termlist? term-list) (null? term-list))
+(define (make-term order coeff)
+  (if (= order 0)
+      (list coeff)
+      (cons coeff (make-term (- order 1) 0))))
+(define (order term) (- (length term) 1))
+(define (coeff term) (car term))
+#+end_src
+
+** Exercise 2.90
+
+Suppose we want to have a polynomial system that is efficient for both sparse and dense polynomials. One way to do this is to allow both kinds of term-list representations in our system. The situation is analogous to the complex-number example of Section 2.4, where we allowed both rectangular and polar representations. To do this we must distinguish different types of term lists and make the operations on term lists generic. Redesign the polynomial system to implement this generalization. This is a major effort, not a local change.
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-2.90][sicp-ex-2.90]]
+- [[https://wizardbook.wordpress.com/2010/12/09/exercise-2-90][Exercise 2.90]]
+
+** Exercise 2.91
+
+A univariate polynomial can be divided by another one to produce a polynomial quotient and a polynomial remainder. For example,
+
+$$\frac{x^5-1}{x^2-1}=x^3+x,\mathrm{remainder}\:x-1$$.
+
+Division can be performed via long division. That is, divide the highest-order term of the dividend by the highest-order term of the divisor. The result is the first term of the quotient. Next, multiply the result by the divisor, subtract that from the dividend, and produce the rest of the answer by recursively dividing the difference by the divisor. Stop when the order of the divisor exceeds the order of the dividend and declare the dividend to be the remainder. Also, if the dividend ever becomes zero, return zero as both quotient and remainder.
+
+We can design a ~div-poly~ procedure on the model of ~add-poly~ and ~mul-poly~. The procedure checks to see if the two polys have the same variable. If so, ~div-poly~ strips off the variable and passes the problem to ~div-terms~, which performs the division operation on term lists. ~div-poly~ finally reattaches the variable to the result supplied by ~div-terms~. It is convenient to design ~div-terms~ to compute both the quotient and the remainder of a division. ~div-terms~ can take two term lists as arguments and return a list of the quotient term list and the remainder term list.
+
+Complete the following definition of ~div-terms~ by filling in the missing expressions. Use this to implement ~div-poly~, which takes two polys as arguments and returns a list of the quotient and remainder polys.
+
+#+begin_src scheme
+(define (div-terms L1 L2)
+  (if (empty-termlist? L1)
+      (list (the-empty-termlist) (the-empty-termlist))
+      (let ((t1 (first-term L1))
+            (t2 (first-term L2)))
+        (if (> (order t2) (order t1))
+            (list (the-empty-termlist) L1)
+            (let ((new-c (div (coeff t1) (coeff t2)))
+                  (new-o (- (order t1) (order t2))))
+              (let ((rest-of-result
+                     <compute rest of result recursively> ))
+                <form complete result> ))))))
+#+end_src
+
+*** Solution
+
+#+name: div-poly-procedure
+#+begin_src scheme
+(define (div-poly p1 p2)
+  (if (same-varialbe? (variable p1) (variable p2))
+      (map (lambda (terms) (make-poly (variable p1) terms))
+           (div-terms (term-list p1) (term-list p2)))
+      (error "Polys not in same var: DIV-POLY" (list p1 p2))))
+#+end_src
+
+#+name: div-terms-procedure
+#+begin_src scheme
+(define (div-terms L1 L2)
+  (if (empty-termlist? L1)
+      (list (the-empty-termlist) (the-empty-termlist))
+      (let ((t1 (first-term L1))
+            (t2 (first-term L2)))
+        (if (> (order t2) (order t1))
+            (list (the-empty-termlist) L1)
+            (let ((new-c (div (coeff t1) (coeff t2)))
+                  (new-o (- (order t1) (order t2))))
+              (let ((rest-of-result
+                     (div-terms
+                      (sub-terms L1
+                                 (mul-term-by-all-terms
+                                  (make-term new-o new-c)
+                                  L2))
+                      L2)))
+                (list (adjoin-term (make-term new-o new-c)
+                                   (car rest-of-result))
+                      (cadr rest-of-result))))))))
+#+end_src
+
+** Exercise 2.92
+
+By imposing an ordering on variables, extend the polynomial package so that addition and multiplication of polynomials works for polynomials in different variables. (This is not easy!)
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-2.92][sicp-ex-2.92]]
+- [[https://wizardbook.wordpress.com/2010/12/10/exercise-2-92][Exercise 2.92]]
+
+** Exercise 2.93
+
+Modify the rational-arithmetic package to use generic operations, but change ~make-rat~ so that it does not attempt to reduce fractions to lowest terms. Test your system by calling ~make-rational~ on two polynomials to produce a rational function:
+
+#+begin_src scheme
+(define p1 (make-poly 'x '((2 1) (0 1))))
+(define p2 (make-poly 'x '((3 1) (0 1))))
+(define rf (make-rational p2 p1))
+#+end_src
+
+Now add ~rf~ to itself, using ~add~. You will observe that this addition procedure does not reduce fractions to lowest terms.
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-2.93][sicp-ex-2.93]]
+- [[https://wizardbook.wordpress.com/2010/12/14/exercise-2-93-2][Exercise 2.93]]
+
+** Exercise 2.94
+
+Using ~div-terms~, implement the procedure ~remainder-terms~ and use this to define ~gcd-terms~ as above. Now write a procedure ~gcd-poly~ that computes the polynomial $\textrm{GCD}$ of two polys. (The procedure should signal an error if the two polys are not in the same variable.) Install in the system a generic operation ~greatest-common-divisor~ that reduces to ~gcd-poly~ for polynomials and to ordinary ~gcd~ for ordinary numbers. As a test, try
+
+#+begin_src scheme
+(define p1 (make-polynomial
+            'x '((4 1) (3 -1) (2 -2) (1 2))))
+(define p2 (make-polynomial 'x '((3 1) (1 -1))))
+(greatest-common-divisor p1 p2)
+#+end_src
+
+and check your result by hand.
+
+*** Solution
+
+#+name: remainder-terms-procedure
+#+begin_src scheme
+(define (remainder-terms t1 t2)
+  (if (empty-termlist? t2)
+      the-empty-termlist
+      (cadr (div-terms t1 t2))))
+#+end_src
+
+#+name: greatest-common-divisor-procedure
+#+begin_src scheme
+(define (greatest-common-divisor a b)
+  (apply-generic 'gcd a b))
+(define (gcd-poly p1 p2)
+  (if (same-varialbe? (variable p1) (variable p2))
+      (make-poly (variable p1)
+                 (gcd-terms (term-list p1) (term-list p2)))
+      (error "Polys not in same var: GCD-POLY" (list p1 p2))))
+(put 'gcd '(polynomial polynomial)
+     (lambda (a b) (tag (gcd-poly a b))))
+#+end_src
+
+** Exercise 2.95
+
+Define $P_1$, $P_2$, and $P_3$ to be the polynomials
+
+\begin{align*}
+P_1\:&:\quad x^2-2x+1, \\
+P_2\:&:\quad 11x^2+7, \\
+P_3\:&:\quad 13x+5.
+\end{align*}
+
+Now define $Q_1$ to be the product of $P_1$ and $P_2$ and $Q_2$ to be the product of $P_1$ and $P_3$, and use ~greatest-common-divisor~ ([[*Exercise 2.94][Exercise 2.94]]) to compute the $\textrm{GCD}$ of $Q_1$ and $Q_2$. Note that the answer is not the same as $P_1$. This example introduces noninteger operations into the computation, causing difficulties with the $\textrm{GCD}$ algorithm.[fn:12] To understand what is happening, try tracing ~gcd-terms~ while computing the $\textrm{GCD}$ or try performing the division by hand.
+
+*** Solution
+
+[[https://wizardbook.wordpress.com/2010/12/14/exercise-2-95][Exercise 2.95]]
+
+** Exercise 2.96
+
+a. Implement the procedure ~pseudoremainder-terms~, which is just like ~remainder-terms~ except that it multiplies the dividend by the integerizing factor described above before calling ~div-terms~. Modify ~gcd-terms~ to use ~pseudoremainder-terms~, and verify that ~greatest-common-divisor~ now produces an answer with integer coefficients on the example in [[*Exercise 2.95][Exercise 2.95]].
+b. The $\textrm{GCD}$ now has integer coefficients, but they are larger than those of $P_1$. Modify ~gcd-terms~ so that it removes common factors from the coefficients of the answer by dividing all the coefficients by their (integer) greatest common divisor.
+
+*** Solution
+
+**** Part a
+
+#+name: pseudoremainder-terms-procedure
+#+begin_src scheme
+(define (pseudoremainder-terms p q)
+  (if (empty-termlist? q)
+      the-empty-termlist
+      (let ((p1 (first-term p))
+            (q1 (first-term q)))
+        (let ((o1 (order p1))
+              (o2 (order q1))
+              (c (coeff q1)))
+          (cadr (div-terms
+                 (mul-terms (make-term 0 (expt c (sub (add 1 o1) o2)))
+                            p)
+                 q))))))
+#+end_src
+
+#+name: gcd-terms-use-pseudoremainder-terms
+#+begin_src scheme
+(define (gcd-terms a b)
+  (if (empty-termlist? b)
+      a
+      (gcd-terms b (pseudoremainder-terms a b))))
+#+end_src
+
+**** Part b
+
+#+name: gcd-terms-remove-common-factors
+#+begin_src scheme
+(define (gcd-terms a b)
+  (if (empty-termlist? b)
+      (let ((coeff-list (map coeff a)))
+        (let ((gcd-coeff (apply gcd coeff-list)))
+          (div-terms a (make-term 0 gcd-coeff))))
+      (gcd-terms b (pseudoremainder-terms a b))))
+#+end_src
+
+** Exercise 2.97
+
+a. Implement this algorithm as a procedure ~reduce-terms~ that takes two term lists ~n~ and ~d~ as arguments and returns a list ~nn~, ~dd~, which are ~n~ and ~d~ reduced to lowest terms via the algorithm given above. Also write a procedure ~reduce-poly~, analogous to ~add-poly~, that checks to see if the two polys have the same variable. If so, ~reduce-poly~ strips off the variable and passes the problem to ~reduce-terms~, then reattaches the variable to the two term lists supplied by ~reduce-terms~.
+b. Define a procedure analogous to ~reduce-terms~ that does what the original ~make-rat~ did for integers:
+
+   #+begin_src scheme
+(define (reduce-integers n d)
+  (let ((g (gcd n d)))
+    (list (/ n g) (/ d g))))
+   #+end_src
+
+   and define ~reduce~ as a generic operation that calls ~apply-generic~ to dispatch to either ~reduce-poly~ (for ~polynomial~ arguments) or ~reduce-integers~ (for ~scheme-numebr~ arguments). You can now easily make the rational-arithmetic package reduce fractions to lowest terms by having ~make-rat~ call ~reduce~ before combining the given numerator and denominator to form a rational number. The system now handles rational expressions in either integers or polynomials. To test your program, try the example at the beginning of this extended exercise:
+
+   #+begin_src scheme
+(define  p1 (make-polynomial 'x '((1 1) (0  1))))
+(define  p2 (make-polynomial 'x '((3 1) (0 -1))))
+(define  p3 (make-polynomial 'x '((1 1))))
+(define  p4 (make-polynomial 'x '((2 1) (0 -1))))
+(define rf1 (make-rational p1 p2))
+(define rf2 (make-rational p3 p4))
+(add rf1 rf2)
+   #+end_src
+
+   See if you get the correct answer, correctly reduced to lowest terms.
+
+*** Solution
+
+- [[http://community.schemewiki.org/?sicp-ex-2.97][sicp-ex-2.97]]
+- [[https://wizardbook.wordpress.com/2010/12/14/exercise-2-97][Exercise 2.97]]

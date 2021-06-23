@@ -1,0 +1,40 @@
+#+title:     Footnotes for SICP exercises
+#+author:    Jason Huang
+#+email:     huangmianrui0310@outlook.com
+#+date:      <2021-04-08 Thu>
+
+#+description:  Footnotes for all SICP exercises
+#+keywords:     sicp, exercises, footnotes
+#+language:     en
+#+startup:      content
+#+exclude_tags: noexport
+
+* Footnotes
+
+[fn:1] The elements of Pascal's triangle are called the /binomial coefficients/, because the \(n^{th}\) row consists of the coefficients of the terms in the expansion of \((x+y)^{n}\). This pattern for computing the coefficients appeared in Blaise Pascal's 1653 seminal work on probability theory, /Traité du triangle arithmétique/. According to [[file:references.org::ref:2][Knuth (1973)]], the same pattern appears in the /Szu-yuen Yü-chien/ ("The Precious Mirror of the Four Elements"), published by the Chinese mathematician Chu Shih-chieh in 1303, in the works of the twelfth-century Persian poet and mathematician Omar Khayyam, and in the works of the twelfth-century Hindu mathematician Bháscara Áchárya.
+
+[fn:2] The definition of the Fibonacci numbers:
+
+\begin{math}
+\mathrm{Fib}(n) =
+\begin{cases}
+0 & \text{if }\space n=0, \\
+1 & \text{if }\space n=1, \\
+\mathrm{Fib}(n-1) + \mathrm{Fib}(n-2) & \text{otherwise}.
+\end{cases}
+\end{math}
+
+[fn:3] This algorithm, which is sometimes known as the "Russian peasant method" of multiplication, is ancient. Examples of its use are found in the Rhind Papyrus, one of the two oldest mathematical documents in existence, wriite about 1700 =B.C.= (and copied from an even older document) by an Egyptian scribe named A'h-mose.
+
+[fn:4] This exercise was suggested to us by Joe Stoy, based on an example in [[file:references.org::ref:1][Kaldewaij 1990]].
+
+[fn:5] The intent of [[file:chapter-1-exercises.org::*Exercise 1.31][Exercise 1.31]] through [[file:chapter-1-exercises.org::*Exercise 1.33][Exercise 1.33]] is to demonstrate the expressive power that is attained by using an appropriate abstraction to consolidate many seemingly disparate operations. However, though accumulation and filtering are elegant ideas, our hands are somewhat tied in using them at this point since we do not yet have data structures to provide suitable means of combination for these abstractions. We will return to these ideas in [[file:examples.org::#section-2.2.3][Section 2.2.3]] when we show how to use /sequences/ as interfaces for combining filters and accumulators to build even more powerful abstractions. We will see there how these methods really come into their own as a powerful and elegant approach to designing programs.
+
+[fn:6] This formula was discovered by the seventeenth-century English mathematician John Wallis.
+
+[fn:7] To define ~f~ and ~g~ using ~lambda~ we would write
+
+#+begin_src scheme
+(define f (lambda (x y . z) <body>))
+(define g (lambda w <body>))
+#+end_src

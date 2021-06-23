@@ -1,0 +1,2529 @@
+#+title:     Exercises in SICP Chapter 5
+#+author:    Jason Huang
+#+email:     huangmianrui0310@outlook.com
+#+date:      <2021-04-08 Thu>
+
+#+description:  Exercises and solutions in SICP chapter 5
+#+keywords:     sicp, exercises, solutions, lisp, scheme
+#+language:     en
+#+startup:      content
+#+exclude_tags: noexport
+
+* Chapter 5 Computing with Register Machines
+
+** Footnotes :noexport:
+
+
+[fn:28] This isn't really cheating. In an actual implementation built from scratch, we would use our explicit-control evaluator to interpret a Scheme program that performs source-level transformations like ~cond->if~ in a syntax phase that runs before execution.
+
+[fn:32] Regrettably, this is the normal state of affairs in conventional compiler-based language systems such as C. In =UNIX=​(tm) the system "dumps core," and in =DOS=​/Windows(tm) it becomes catatonic. The Macintosh(tm) displays a picture of an exploding bomb and offers you the opportunity to reboot the computer--if you're lucky.
+
+[fn:43] We have used the same symbol ~+~ here to denote both the source-language procedure and the machine operation. In general there will not be a one-to-one correspondence between primitives of the source language and primitives of the machine.
+
+[fn:44] Making the primitives into reserved words is in general a bad idea, since a user cannot then rebind these names to different procedures. Moreover, if we add reserved words to a compiler that is in use, existing programs that define procedures with these names will stop working, See [[*Exercise 5.44][Exercise 5.44]] for ideas on how to avoid this problem.
+
+[fn:46] This is the modification to variable lookup required if we implement the scanning method to eliminate internal definitions ([[*Exercise 5.43][*Exercise 5.43]]). We will need to eliminate these definitions in order for lexical addressing to work.
+
+[fn:47] Lexical addresses cannot be used to access variables in the global environment, be cause these names can be defined and redefined interactively at any time. With internal definitions scanned out, as in [[*Exercise 5.43][Exercise 5.43]], the only definitions the compiler sees are those at top level, which act on the global environment. Compilation of a definition does not cause the defined name to be entered in the compile-time environment.
+
+** Exercise 5.1
+
+Design a register machine to compute factorials using the iterative algorithm specified by the following procedure. Draw data-path and controller diagrams for this machine.
+
+#+begin_src scheme
+(define (factorial n)
+  (define (iter product counter)
+    (if (> counter n)
+        product
+        (iter (* counter product)
+              (+ counter 1))))
+  (iter 1 1))
+#+end_src
+
+*** Solution
+
+#+caption: a picture to solve the execire 5.1
+#+name: fig:exercise-5.1
+[[file:images/exercise-5.1.png]]
+
+** Exercise 5.2
+
+Use the register-machine language to describe the iterative factorial machine of [[*Exercise 5.1][Exercise 5.1]].
+
+*** Solution
+
+#+begin_src scheme
+(controller
+ (assign p (const 1))
+ (assign c (const 1))
+
+ test-c
+ (test (op >) (reg c) (reg n))
+ (branch (label factorial-done))
+ (assign p (op *) (reg p) (reg c))
+ (assign c (op +) (reg c) (const 1))
+ (goto (label test-c))
+ factorial-done)
+#+end_src
+
+** Exercise 5.3
+
+Design a machine to compute square roots using Newton's method, as described in Section 1.1.7:
+
+#+begin_src scheme
+(define (sqrt x)
+  (define (good-enough? guess)
+    (< (abs (- (square guess) x)) 0.001))
+  (define (improve guess)
+    (average guess (/ x guess)))
+  (define (sqrt-iter guess)
+    (if (good-enough? guess)
+        guess
+        (sqrt-iter (improve guess))))
+  (sqrt-iter 1.0))
+#+end_src
+
+Begin by assuming that ~good-enough?~ and ~improve~ operations are available as primitives. Then show how to expand these in terms of arithmetic operations. Describe each version of the ~sqrt~ machine design by drawing a data-path diagram and writing a controller definition in the register-machine language.
+
+*** Solution
+
+**** Part a
+
+#+caption: a picture to solve the execire 5.3 part a
+#+name: fig:exercise-5.3.a
+#+attr_org: :width 400
+[[file:images/exercise-5.3.a.png]]
+
+#+begin_src scheme
+(controller
+   (assign x (op read))
+   (assign g (const 1.0))
+ test-g
+   (test (op good-enough?) (reg g))
+   (branch (sqrt-done))
+   (assign t (op improve) (reg g))
+   (assign g (reg t))
+   (goto (label test-g))
+ sqrt-done)
+#+end_src
+
+**** Part b
+
+#+begin_src scheme
+(controller
+   (assign x (op read))
+   (assign g (const 1.0))
+ test-g
+   (assign t (op *) (reg g) (reg g))
+   (assign t (op -) (reg t) (reg x))
+   (assign g (op abs) (reg t))
+   (test (op <) (reg g) (const 0.001))
+   (branch (sqrt-done))
+   (assign t (op /) (reg x) (reg g))
+   (assign s (op +) (reg g) (reg t))
+   (assign g (op /) (reg s) (const 2.0))
+   (goto (label test-g))
+ sqrt-done)
+#+end_src
+
+** Exercise 5.4
+
+Specify register machines that implement each of the following procedures. For each machine, write a controller instruction sequence and draw a diagram showing the data paths.
+
+a. Recursive exponentiation:
+
+   #+begin_src scheme
+(define (expt b n)
+  (if (= n 0)
+      1
+      (* b (expt b (- n 1)))))
+   #+end_src
+
+b. Iterative exponentiation:
+
+   #+begin_src scheme
+(define (expt b n)
+  (define (expt-iter counter product)
+    (if (= counter 0)
+        product
+        (expt-iter (- counter 1)
+                   (* b product))))
+  (expt-iter n 1))
+   #+end_src
+
+*** Solution
+
+**** Part a
+
+#+begin_src scheme
+(controller
+   (assign b (op read))
+   (assign n (op read))
+   (assign continue (label expt-done))    ; set up final return address
+ expt-loop
+   (test (op =) (reg n) (const 0))
+   (branch (label base-case))
+   ;; Set up for the recursive call by saving n and continue.
+   ;; Set up continue so that the computation will continue
+   ;; at after-expt when the subroutine returns.
+   (save continue)
+   (save n)
+   (assign n (op -) (reg n) (const 1))
+   (assign continue (label after-expt))
+   (goto (label expt-loop))
+ after-expt
+   (restore n)
+   (restore continue)
+   (assign val (op *) (reg b) (reg val))  ; val now contains b*b^(n-1)
+   (goto (reg continue))                  ; return to caller
+ base-case
+   (assign val (const 1))                 ; base case: b^1 = 0
+   (goto (reg continue))                  ; return to caller
+ expt-done)
+#+end_src
+
+#+caption: a picture to solve the execire 5.4 part a
+#+name: fig:exercise-5.4.a
+#+attr_org: :width 800
+[[file:images/exercise-5.4.a.png]]
+
+**** Part b
+
+#+begin_src scheme
+(controller
+   (assign b (op read))
+   (assign n (op read))
+   (assign c (reg n))
+   (assign p (const 1))
+ expt-iter
+   (test (op =) (reg c) (const 0))
+   (branch (label expt-done))
+   (assign c (op -) (reg c) (const 1))
+   (assign p (op *) (reg b) (reg p))
+   (goto (label expt-iter))
+ expt-done
+   (assign val (reg p)))
+#+end_src
+
+#+caption: a picture to solve the execire 5.4 part b
+#+name: fig:exercise-5.4.b
+#+attr_org: :width 600
+[[file:images/exercise-5.4.b.png]]
+
+** Exercise 5.5
+
+Hand-simulate the factorial and Fibonacci machines, using some nontrivial input (requiring execution of at least one recursive call). Show the contents of the stack at each significant point in the execution.
+
+*** Solution
+
+[[http://community.schemewiki.org/?sicp-ex-5.5][sicp-ex-5.5]]
+
+** Exercise 5.6
+
+Ben Bitdiddle observes that the Fibonacci machine's controller sequence has an extra ~save~ and an extra ~restore~, which can be removed to make a faster machine. Where are these instructions?
+
+*** Solution
+
+#+begin_src scheme
+(controller
+ ...
+ afterfib-n-1
+   (restore n)
+   (restore continue)                   ; this one
+   (assign n (op -) (reg n) (const 2))
+   (save continue)                      ; and this one
+   ...)
+#+end_src
+
+** Exercise 5.7
+
+Use the simulator to test the machines you designed in [[*Exercise 5.4][Exercise 5.4]].
+
+*** Solution
+
+#+begin_src scheme
+(define recr-expt-machine
+  (make-machine
+   '(b n continue val)
+   (list (list '= =)
+         (list '- -)
+         (list '* *)
+         (list 'read read))
+   '(controller
+     (assign b (op read))
+     (assign n (op read))
+     (assign continue (label expt-done))
+     expt-loop
+     (test (op =) (reg n) (const 0))
+     (branch (label base-case))
+     (save continue)
+     (save n)
+     (assign n (op -) (reg n) (const 1))
+     (assign continue (label after-expt))
+     (goto (label expt-loop))
+     after-expt
+     (restore n)
+     (restore continue)
+     (assign val (op *) (reg b) (reg val))
+     (goto (reg continue))
+     base-case
+     (assign val (const 1))
+     (goto (reg continue))
+     expt-done)))
+
+(define iter-expt-machine
+  (make-machine
+   '(b n c p)
+   (list (list '= =)
+         (list '- -)
+         (list '* *)
+         (list 'read read))
+   '(controller
+     (assign b (op read))
+     (assign n (op read))
+     (assign c (reg n))
+     (assign p (const 1))
+     expt-iter
+     (test (op =) (reg c) (const 0))
+     (branch (label expt-done))
+     (assign c (op -) (reg c) (const 1))
+     (assign p (op *) (reg b) (reg p))
+     (goto (label expt-iter))
+     expt-done)))
+#+end_src
+
+#+begin_src scheme
+(start recr-expt-machine)
+2
+10
+done
+(get-register-contents recr-expt-machine 'val)
+1024
+(start iter-expt-machine)
+2
+10
+done
+(get-register-contents iter-expt-machine 'p)
+1024
+#+end_src
+
+** Exercise 5.8
+
+The following register-machine code is ambiguous, because the label ~here~ is defined more than once:
+
+#+begin_src scheme
+start
+  (goto (label here))
+here
+  (assign a (const 3))
+  (goto (label there))
+here
+  (assign a (const 4))
+  (goto (label there))
+there
+#+end_src
+
+With the simulator as written, what will the contents of register ~a~ be when control reaches ~there~? Modify the ~extract-labels~ procedure so that the assembler will signal an error if the same label name is used to indicate two different locations.
+
+*** Solution
+
+The contents of register ~a~ is ~4~.
+
+#+begin_src scheme
+(define (extract-labels text receive)
+  (if (null? text)
+      (receive '() '())
+      (extract-labels
+       (cdr text)
+       (lambda (insts labels)
+         (let ((next-inst (car text)))
+           (if (symbol? next-inst)
+               (if (assoc next-inst labels)
+                   (error "Duplicated label: ASSEMBLE"
+                          next-inst)
+                   (receive insts
+                       (cons (make-label-entry next-inst
+                                               insts)
+                             labels)))
+               (receive (cons (make-instruction next-inst)
+                              insts)
+                   labels)))))))
+#+end_src
+
+** Exercise 5.9
+
+The treatment of machine operations above permits them to operate on labels as well as on constants and the contents of registers. Modify the expression-processing procedures to enforce the condition that operations can be used only with registers and constants.
+
+*** Solution
+
+#+begin_src scheme
+(define (make-operation-exp exp machine labels operations)
+  (let ((op (lookup-prim (operation-exp-op exp)
+                         operations))
+        (aprocs
+         (map (lambda (e)
+                (if (label-exp? e)
+                    (error "Label denied: ASSEMBLE" e)
+                    (make-primitive-exp e machine labels)))
+              (operation-exp-operands exp))))
+    (lambda ()
+      (apply op (map (lambda (p) (p)) aprocs)))))
+#+end_src
+
+** Exercise 5.10
+
+Design a new syntax for register-machine instructions and modify the simulator to use your new syntax. Can you implement your new syntax without changing any part of the simulator except the syntax procedures in this section?
+
+*** Solution
+
+#+begin_src scheme
+; new syntax likes: (add a (reg b)), which a is a register
+; add this clause into the make-execution-procedure
+((eq? inst-type 'add) (make-add inst machine pc))
+
+(define (add-reg-name inst) (cadr inst))
+(define (add-addend-val inst) (caddr inst))
+(define (make-add inst machine pc)
+  (let ((target (get-register machine (add-reg-name inst)))
+        (addend (make-primitive-exp (add-addend-val inst) machine '())))
+    (lambda ()
+      (set-contents! target (+ (get-contents target) (addend)))
+      (advance-pc pc))))
+#+end_src
+
+#+begin_src scheme
+(define test-add-machine
+  (make-machine
+   '(a b)
+   '()
+   '(controller
+     (add a (reg b))
+     (add a (const 1))
+     add-done)))
+#+end_src
+
+#+begin_src scheme
+(set-register-contents! test-add-machine 'a 1)
+done
+(set-register-contents! test-add-machine 'b 2)
+done
+(start test-add-machine)
+done
+(get-register-contents test-add-machine 'a)
+4
+#+end_src
+
+** Exercise 5.11
+
+When we introduced ~save~ and ~restore~ in Section 5.1.4, we didn't specify what would happen if you tried to restore a register that was not the last one saved, as in the sequence
+
+#+begin_src scheme
+(save y)  (save x)  (restore y)
+#+end_src
+
+There are several reasonable possibilities for the meaning of ~restore~:
+
+a. ~(restore y)~ puts into ~y~ the last value saved on the stack, regardless of what register that value came from. This is the way our simulator behaves. Show how to take advantage of this behavior to eliminate one instruction from the Fibonacci machine of Section 5.1.4([[https://sarabander.github.io/sicp/html/5_002e1.xhtml#Figure-5_002e12][Figure 5.12]]).
+b. ~(restore y)~ puts into ~y~ the last value saved on the stack, but only it that value was saved from ~y~; otherwise, it signals an error. Modify the simulator to behave this way. You will have to change ~save~ to put the register name on the stack along with the value.
+c. ~(restore y)~ puts into ~y~ the last value saved from ~y~ regardless of what other registers were saved after ~y~ and not restored. Modify the simulator to behave this way. You will have to associate a separate stack with each register. You should make the ~initialize-stack operation initialize all the register stacks.
+
+*** Solution
+
+#+begin_src scheme
+(define test-restore-machine
+  (make-machine
+    '(x y)
+    '()
+    '(controller
+        (assign x (const 1))
+        (assign y (const 2))
+        (save y)
+        (save x)
+        (restore y)
+      done)))
+#+end_src
+
+**** Part a
+
+#+begin_src scheme
+afterfib-n-2
+  (assign n (reg val))    ; *** n now contains Fib(n-2)
+  (restore val)           ; *** val now contains Fib(n-1)
+; Those could be replaced by
+afterfib-n-2
+  (restore n)             ; *** n now contains Fib(n-1), val contains Fib(n-2)
+#+end_src
+
+#+begin_src scheme
+(start test-restore-machine)
+done
+
+(get-register-contents test-restore-machine 'y)
+1
+#+end_src
+
+**** Part b
+
+#+begin_src scheme
+(define (make-save inst machine stack pc)
+  (let* ((reg-name (stack-inst-reg-name inst))
+         (reg (get-register machine reg-name)))
+    (lambda ()
+      (push stack (cons reg-name (get-contents reg)))
+      (advance-pc pc))))
+(define (make-restore inst machine stack pc)
+  (let* ((reg-name (stack-inst-reg-name inst))
+         (reg (get-register machine reg-name)))
+    (lambda ()
+      (let ((top (pop stack)))
+        (if (eq? (car top) reg-name)
+            (begin (set-contents! reg (cdr top))
+                   (advance-pc pc))
+            (error "No matched name: STACK" reg-name))))))
+#+end_src
+
+#+begin_src scheme
+(start test-restore-machine)
+No matched name: STACK y
+#+end_src
+
+**** Part c
+
+My implementation:
+
+#+begin_src scheme
+(define (make-save inst machine pc)
+  (let* ((reg-name (stack-inst-reg-name inst))
+         (reg (get-register machine reg-name))
+         (stack (get-stack machine reg-name)))
+    (lambda ()
+      (push stack (cons reg-name (get-contents reg)))
+      (advance-pc pc))))
+(define (make-restore inst machine pc)
+  (let* ((reg-name (stack-inst-reg-name inst))
+         (reg (get-register machine reg-name))
+         (stack (get-stack machine reg-name)))
+    (lambda ()
+      (let ((top (pop stack)))
+        (if (eq? (car top) reg-name)
+            (begin (set-contents! reg (cdr top))
+                   (advance-pc pc))
+            (error "No matched name: STACK" reg-name))))))
+
+(define (make-new-machine)
+  (let (...
+        (stacks (list (list 'global (make-stack))))
+        ...)
+    (let ((the-ops
+           (list (list 'initialize-stack
+                       (lambda ()
+                         (for-each
+                          (lambda (stack) (stack 'initialize))
+                          stacks)))))
+          ...)
+      ...
+      (define (lookup-stack name)
+        (let ((stack (assoc name stacks)))
+          (if stack
+              (cadr stack)
+              (assoc 'global stacks))))
+      ...
+      (define (dispatch message)
+        (cond (...
+              ((eq? message 'get-stack) lookup-stack)
+              ...))
+      dispatch)))
+
+(define (get-stack machine name)
+  ((machine 'get-stack) name))
+
+(define (make-execution-procedure
+         inst labels machine pc flag ops)
+  (let ((inst-type (car inst)))
+    (cond (...
+          ((eq? inst-type 'save)
+           (make-save inst machine pc))
+          ((eq? inst-type 'restore)
+           (make-restore inst machine pc))
+          ...)))
+
+(define (update-insts! insts labels machine)
+  (let ((pc (get-register machine 'pc))
+        (flag (get-register machine 'flag))
+        (ops (machine 'operations)))
+    (for-each
+     (lambda (inst)
+       (set-instruction-execution-proc!
+        inst
+        (make-execution-procedure
+         (instruction-text inst)
+         labels machine pc flag ops)))
+     insts)))
+#+end_src
+
+#+begin_src scheme
+(start test-restore-machine)
+done
+
+(get-register-contents test-restore-machine 'y)
+2
+#+end_src
+
+See [[http://community.schemewiki.org/?sicp-ex-5.11][others]].
+
+** Exercise 5.12
+
+This simulator can be used to help determine the data paths required for implementing a machine with a given controller. Extend the assembler to store the following information in the machine model:
+
++ a list of all instructions, with duplicates removed, sorted by instruction type (~assign~, ~goto~, and so on);
++ a list (without duplicates) of the registers used to hold entry points (these are the registers referenced by ~goto~ instructions);
++ a list (without duplicates) of the registers that are ~save~​d or ~restore~​d;
++ for each register, a list (without duplicates) of the sources from which it is assigned (for example, the sources for register ~val~ in the factorial machine of [[https://sarabander.github.io/sicp/html/5_002e1.xhtml#Figure-5_002e11][Figure 5.11]] are ~(const 1)~ and ~((op *) (reg n) (reg val))~).
+
+Extend the message-passing interface to the machine to provide access to this new information. To test your analyzer, define the Fibonacci machine from [[https://sarabander.github.io/sicp/html/5_002e1.xhtml#Figure-5_002e12][Figure 5.12]] and examine the lists you constructed.
+
+*** Solution
+
+[[http://community.schemewiki.org/?sicp-ex-5.12][sicp-ex-5.12]]
+
+** Exercise 5.13
+
+Modify the simulator so that it uses the controller sequence to determine what registers the machine has rather than requiring a list of registers as an argument to ~make-machine~. Instead of pre-allocating the registers in ~make-machine~, you can allocate them one at a time when they are first seen during assembly of the instructions.
+
+*** Solution
+
+[[http://community.schemewiki.org/?sicp-ex-5.13][sicp-ex-5.13]]
+
+** Exercise 5.14
+
+Measure the number of pushes and the maximum stack depth required to compute $n!$ for various small values of $n$ using the factorial machine shown in [[https://sarabander.github.io/sicp/html/5_002e1.xhtml#Figure-5_002e11][Figure 5.11]]. From your data determine formulas in terms of $n$ for the total number of push operations and the maximum stack depth used in computing $n!$ for any $n>1$. Note that each of these is a linear function of $n$ and is thus determined by two constants. In order to get the statistics printed, you will have to augment the factorial machine with instructions to initialize the stack and print the statistics. You may want to also modify the machine so that it repeatedly reads a value for $n$, computes the factorial, and prints the result (as we did for the =GCD= machine in [[https://sarabander.github.io/sicp/html/5_002e1.xhtml#Figure-5_002e4][Figure 5.4]]), so that you will not have to repeatedly invoke ~get-register-contents~, ~set-register-contents!~, and ~start~.
+
+*** Solution
+
+#+begin_src scheme
+(define factorial-machine
+  (make-machine
+   '(continue n val)
+   (list (list '= =)
+         (list '- -)
+         (list '* *)
+         (list 'read read)
+         (list 'print (lambda (val) (newline) (display val) (newline))))
+   '(controller
+     entry-point
+     (perform (op print) (const "Please enter a number:"))
+     (assign n (op read))
+     (assign continue (label fact-done))    ;set up final return address
+     fact-loop
+     (test (op =) (reg n) (const 1))
+     (branch (label base-case))
+     ;; Set up for the recursive call by saving n and continue.
+     ;; Set up continue so that the computation will continue
+     ;; at after-fact when the subroutine returns.
+     (save continue)
+     (save n)
+     (assign n (op -) (reg n) (const 1))
+     (assign continue (label after-fact))
+     (goto (label fact-loop))
+     after-fact
+     (restore n)
+     (restore continue)
+     (assign val (op *) (reg n) (reg val))   ;val now contains n(n - 1)!
+     (goto (reg continue))                   ;return to caller
+     base-case
+     (assign val (const 1))                  ;base case: 1! = 1
+     (goto (reg continue))                   ;return to caller
+     fact-done
+     (perform (op print) (reg val))
+     (perform (op print-stack-statistics))
+     (perform (op initialize-stack))
+     (goto (label entry-point)))))
+#+end_src
+
+#+begin_src scheme
+(start factorial-machine)
+
+Please enter a number:
+4
+
+24
+
+(total-pushes = 6 maximum-depth = 6)
+Please enter a number:
+10
+
+3628800
+
+(total-pushes = 18 maximum-depth = 18)
+Please enter a number:
+16
+
+20922789888000
+
+(total-pushes = 30 maximum-depth = 30)
+Please enter a number:
+25
+
+15511210043330985984000000
+
+(total-pushes = 48 maximum-depth = 48)
+Please enter a number:
+50
+
+30414093201713378043612608166064768844377641568960512000000000000
+
+(total-pushes = 98 maximum-depth = 98)
+Please enter a number:
+100
+
+93326215443944152681699238856266700490715968264381621468592963895217599993229915608941463976156518286253697920827223758251185210916864000000000000000000000000
+
+(total-pushes = 198 maximum-depth = 198)
+#+end_src
+
+So as the results above, the number-pushes and max-depth are both $2(n-1)$.
+
+** Exercise 5.15
+
+Add /instruction counting/ to the register machine simulation. That is, have the machine model keep track of the number of instructions executed. Extend the machine model's interface to accept a new message that prints the value of the instruction count and resets the count to zero.
+
+*** Solution
+
+#+begin_src scheme
+(define (make-new-machine)
+  (let (...
+        (the-instruction-counter 0))
+    (...
+      (define (execute)
+        (let ((insts (get-contents pc)))
+          (if (null? insts)
+              'done
+              (begin
+                ((instruction-execution-proc (car insts)))
+                (set! the-instruction-counter (+ the-instruction-counter 1))
+                (execute)))))
+      (define (print-instruction-counter-then-reset)
+        (display (list "Current instruction counting is: " the-instruction-counter))
+        (set! the-instruction-counter 0)
+        (newline))
+      (define (dispatch message)
+        (cond (...
+              ((eq? message 'counter) (print-instruction-counter-then-reset))
+              (else (error "Unknown request: MACHINE"
+                           message))))
+      dispatch)))
+#+end_src
+
+#+begin_src scheme
+(set-register-contents! gcd-machine 'a 199)
+
+done
+
+(set-register-contents! gcd-machine 'b 17)
+
+done
+
+(start gcd-machine)
+
+done
+
+(get-register-contents gcd-machine 'a)
+
+1
+
+(gcd-machine 'counter)
+(Current instruction counting is:  32)
+
+(gcd-machine 'counter)
+(Current instruction counting is:  0)
+#+end_src
+
+** Exercise 5.16
+
+Augment the simulator to provide for /instruction tracing/. That is, before each instruction is executed, the simulator should print the text of the instruction. Make the machine model accept ~trace-on~ and ~trace-off~ messages to turn tracing on and off.
+
+*** Solution
+
+#+begin_src scheme
+(define (make-new-machine)
+  (let (...
+        (the-instruction-tracing false))
+    (...
+      (define (execute)
+        (let ((insts (get-contents pc)))
+          (if (null? insts)
+              'done
+              (begin
+                (if the-instruction-tracing
+                    (begin (display (instruction-text (car insts)))
+                           (newline)))
+                ((instruction-execution-proc (car insts)))
+                (execute)))))
+      (define (dispatch message)
+        (cond (...
+              ((eq? message 'trace-on) (set! the-instruction-tracing true) 'done)
+              ((eq? message 'trace-off) (set! the-instruction-tracing false) 'done)
+              (else (error "Unknown request: MACHINE"
+                           message))))
+      dispatch)))
+#+end_src
+
+#+begin_src scheme
+(gcd-machine 'trace-on)
+
+done
+
+(set-register-contents! gcd-machine 'a 1024)
+
+done
+
+(set-register-contents! gcd-machine 'b 127)
+
+done
+
+(start gcd-machine)
+
+(test (op =) (reg b) (const 0))
+(branch (label gcd-done))
+(assign t (op rem) (reg a) (reg b))
+(assign a (reg b))
+(assign b (reg t))
+(goto (label test-b))
+(test (op =) (reg b) (const 0))
+(branch (label gcd-done))
+(assign t (op rem) (reg a) (reg b))
+(assign a (reg b))
+(assign b (reg t))
+(goto (label test-b))
+(test (op =) (reg b) (const 0))
+(branch (label gcd-done))
+(assign t (op rem) (reg a) (reg b))
+(assign a (reg b))
+(assign b (reg t))
+(goto (label test-b))
+(test (op =) (reg b) (const 0))
+(branch (label gcd-done))
+(assign t (op rem) (reg a) (reg b))
+(assign a (reg b))
+(assign b (reg t))
+(goto (label test-b))
+(test (op =) (reg b) (const 0))
+(branch (label gcd-done))
+done
+
+(get-register-contents gcd-machine 'a)
+
+1
+
+(gcd-machine 'trace-off)
+
+done
+
+(set-register-contents! gcd-machine 'a 1024)
+
+done
+
+(set-register-contents! gcd-machine 'b 127)
+
+done
+
+(start gcd-machine)
+
+done
+
+(get-register-contents gcd-machine 'a)
+
+1
+#+end_src
+
+** Exercise 5.17
+
+Extend the instruction tracing of [[*Exercise 5.16][Exercise 5.16]] so that before printing an instruction, the simulator prints any labels that immediately precede that instruction in the controller sequence. Be careful to do this in a way that does not interfere with instruction counting ([[*Exercise 5.15][Exercise 5.15]]). You will have to make the simulator retain the necessary label information.
+
+*** Solution
+
+#+begin_src scheme
+(define (execute)
+  (let ((insts (get-contents pc)))
+    (if (null? insts)
+        'done
+        (let* ((inst (car insts))
+               (inst-text (instruction-text inst))
+               (inst-type (car inst-text)))
+          (if the-instruction-tracing
+              (begin (display inst-text) (newline)                       ;; Exercise 5.16
+                     ;; ***
+                     (cond ((eq? inst-type 'goto)
+                            (if (eq? (car target) 'label)
+                                (begin (display (cadr target)) (newline))
+                                (begin (display (get-contents
+                                                 (lookup-register (cadr target))))
+                                       (newline))))
+                           ((eq? inst-type 'branch)
+                            (if (get-contents flag)
+                                (begin (display (cadr target)) (newline)))))))
+          ((instruction-execution-proc inst))
+          (set! the-instruction-counter (+ the-instruction-counter 1))   ;; Exercise 5.15
+          (execute)))))
+#+end_src
+
+#+begin_src scheme
+(define (test-tracing)
+  (gcd-machine 'trace-on)
+  (set-register-contents! gcd-machine 'a 1024)
+  (set-register-contents! gcd-machine 'b 127)
+  (start gcd-machine)
+  (gcd-machine 'trace-off)
+  (get-register-contents gcd-machine 'a))
+
+(test-tracing)
+
+(test (op =) (reg b) (const 0))
+(branch (label gcd-done))
+(assign t (op rem) (reg a) (reg b))
+(assign a (reg b))
+(assign b (reg t))
+(goto (label test-b))
+test-b
+(test (op =) (reg b) (const 0))
+(branch (label gcd-done))
+(assign t (op rem) (reg a) (reg b))
+(assign a (reg b))
+(assign b (reg t))
+(goto (label test-b))
+test-b
+(test (op =) (reg b) (const 0))
+(branch (label gcd-done))
+(assign t (op rem) (reg a) (reg b))
+(assign a (reg b))
+(assign b (reg t))
+(goto (label test-b))
+test-b
+(test (op =) (reg b) (const 0))
+(branch (label gcd-done))
+(assign t (op rem) (reg a) (reg b))
+(assign a (reg b))
+(assign b (reg t))
+(goto (label test-b))
+test-b
+(test (op =) (reg b) (const 0))
+(branch (label gcd-done))
+gcd-done
+
+1
+#+end_src
+
+** Exercise 5.18
+
+Modify the ~make-register~ procedure of Section 5.2.1 so that registers can be traced. Registers should accept messages that turn tracing on and off. When a register is traced, assigning a value to the register should print the name of the register, the old contents of the register, and the new contents being assigned. Extend the interface to the machine model to permit you to turn tracing on and off for designated machine registers.
+
+*** Solution
+
+#+begin_src scheme
+(define (make-register name)
+  (let ((contents '*unassigned*)
+        (tracing false))                                                 ;; ***
+    (define (dispatch message)
+      (cond ((eq? message 'get) contents)
+            ((eq? message 'set)
+             (lambda (value)
+               (if tracing
+                   (begin (display (list name ': contents '=> value))
+                          (newline)))                                    ;; ***
+               (set! contents value)))
+            ((eq? message 'trace-on) (set! tracing true))                ;; ***
+            ((eq? message 'trace-off) (set! tracing false))              ;; ***
+            (else
+             (error "Unknown request: REGISTER" message))))
+    dispatch))
+(define (make-new-machine)
+  (let
+    (let
+      (define (dispatch message)
+        (cond (...
+              ((eq? message 'reg-trace-on)
+               (lambda (reg-name) ((lookup-register reg-name) 'trace-on)))
+              ((eq? message 'reg-trace-off)
+               (lambda (reg-name) ((lookup-register reg-name) 'trace-off)))
+              ...)))
+      dispatch)))
+
+(define (trace-register machine reg-name)
+  ((machine 'reg-trace-on) reg-name))
+(define (stop-tracing machine reg-name)
+  ((machine 'reg-trace-off) reg-name))
+#+end_src
+
+#+begin_src scheme
+(define (test-reg-tracing)
+  (trace-register gcd-machine 'a)
+  (set-register-contents! gcd-machine 'a 1024)
+  (set-register-contents! gcd-machine 'b 127)
+  (start gcd-machine)
+  (stop-tracing gcd-machine 'a)
+  (get-register-contents gcd-machine 'a))
+
+(test-reg-tracing)
+
+(a : *unassigned* => 1024)
+(a : 1024 => 127)
+(a : 127 => 8)
+(a : 8 => 7)
+(a : 7 => 1)
+1
+#+end_src
+
+** Exercise 5.19
+
+Alyssa P. Hacker wants a /breakpoint/ feature in the simulator to help her debug her machine designs. You have been hired to install this features for her. She wants to be able to specify a place in the controller sequence where the simulator will stop and allow her to examine the state of the machine. You are to implement a procedure
+
+#+begin_src scheme
+(set-breakpoint <machine> <label> <n>)
+#+end_src
+
+that sets a breakpoint just before the $n^{th}$ instruction after the given label. For example,
+
+#+begin_src scheme
+(set-breakpoint gcd-machine 'test-b 4)
+#+end_src
+
+installs a breakpoint in ~gcd-machine~ just before the assignment to register ~a~. When the simulator reaches the breakpoint it should print the label and the offset of the breakpoint and stop executing instructions. Alyssa can then use ~get-register-contents~ and ~set-register-contents!~ to manipulate the state of the simulated machine. She should then be able to continue execution by saying
+
+#+begin_src scheme
+(proceed-machine <machine>)
+#+end_src
+
+She should also be able to remove a specific breakpoint by means of
+
+#+begin_src scheme
+(cancel-breakpoint <machine> <label> <n>)
+#+end_src
+
+or to remove all breakpoints by means offset
+
+#+begin_src scheme
+(cancel-all-breakpoints <machine>)
+#+end_src
+
+*** Solution
+
+#+begin_src scheme
+(define (make-new-machine)
+  (let (...
+        (break-on true)                                    ;; ***
+        (current-label '*unassigned*)                      ;; ***
+        (current-line 0)                                   ;; ***
+        (breakpoint-line 0)                                ;; ***
+        (breakpoints '()))                                 ;; ***
+    (...
+      (define (execute)
+        (let ((insts (get-contents pc)))
+          (if (null? insts)
+              'done
+              (let* ((inst (car insts))
+                     (inst-text (instruction-text inst))
+                     (inst-type (car inst-text))
+                     (target (cadr inst-text))
+                     (label (instruction-label inst))
+                     (dest '*unassigned*))
+                (if (and (not (eq? label current-label))
+                         (assoc label breakpoints))
+                    (begin (set! current-label label)
+                           (set! breakpoint-line (cadr (assoc current-label breakpoints)))
+                           (set! current-line 0)))
+                (set! current-line (+ current-line 1))
+                (if (and (= current-line breakpoint-line) break-on)
+                    (begin (set! break-on false)
+                           (display (list 'breakpoint: current-label current-line))
+                           (newline))
+                    (begin
+                      (if (or (and (eq? inst-type 'branch) (get-contents flag))
+                              (and (eq? inst-type 'goto) (eq? (car target) 'label)))
+                          (set! dest (cadr target)))
+                      (if (and (eq? inst-type 'goto) (eq? (car target) 'reg))
+                          (set! dest (get-contents (lookup-register (cadr target)))))
+                      (if (not (eq? dest '*unassigned*))
+                          (set! current-label '*unassigned*))
+                      (if the-instruction-tracing
+                          (begin (display inst-text)
+                                 (newline)
+                                 (if (not (eq? dest '*unassigned*))
+                                     (begin (display dest) (newline)))))
+                      (set! break-on true)
+                      ((instruction-execution-proc inst))
+                      (set! the-instruction-counter (+ the-instruction-counter 1))
+                      (execute)))))))
+      (define (cancel-breakpoint label offset)
+        (define (cancel-one bps)
+          (cond ((null? bps) '())
+                ((equal? (list label offset) (car bps)) (cdr bps))
+                (else (cons (car bps) (cancel-one (cdr bps))))))
+        (set! breakpoints (cancel-one breakpoints))
+        (if (and (eq? current-label label) (not break-on))
+            (begin (set! current-label '*unassigned*)
+                   (set! break-on true)))
+        'done)
+      (define (dispatch message)
+        (cond (...
+              ((eq? message 'set-breakpoint)
+               (lambda (label offset)
+                 (set! breakpoints (cons (list label offset) breakpoints))
+                 'done))
+              ((eq? message 'proceed) (execute))
+              ((eq? message 'cancel-breakpoint) cancel-breakpoint)
+              ((eq? message 'cancel)
+               (set! breakpoints '()) (set! break-on true) 'done)
+              (else (error "Unknown request: MACHINE"
+                           message))))
+      dispatch)))
+
+;; Handles breakpoints
+(define (set-breakpoint machine label n)
+  ((machine 'set-breakpoint) label n))
+(define (proceed-machine machine)
+  (machine 'proceed))
+(define (cancel-breakpoint machine label n)
+  ((machine 'cancel-breakpoint) label n))
+(define (cancel-all-breakpoints machine)
+  (machine 'cancel))
+
+(define (make-instruction-with-label text) (list text '*unassigned* '()))
+(define (instruction-label inst) (cadr inst))
+(define (set-instruction-label! inst label)
+  (set-cdr! inst (cons label (cddr inst))))
+(define (instruction-execution-proc inst) (cddr inst))
+(define (set-instruction-execution-proc! inst proc)
+  (set-cdr! inst (cons (cadr inst) proc)))
+
+(define (extract-labels text receive)
+  (if (null? text)
+      (receive '() '())
+      (extract-labels
+       (cdr text)
+       (lambda (insts labels)
+         (let ((next-inst (car text)))
+           (if (symbol? next-inst)
+               (receive
+                   (map (lambda (inst)
+                          (if (eq? (instruction-label inst) '*unassigned*)
+                              (set-instruction-label! inst label-name))
+                          inst)
+                        insts)
+                   (cons (make-label-entry next-inst
+                                           insts)
+                         labels))
+               (receive (cons (make-instruction-with-label next-inst)
+                              insts)
+                   labels)))))))
+#+end_src
+
+** Exercise 5.20
+
+Draw the box-and-pointer representation and the memory-vector representation (as in [[https://sarabander.github.io/sicp/html/5_002e3.xhtml#Figure-5_002e14][Figure 5.14]]) of the list structure produced by
+
+#+begin_src scheme
+(define x (cons 1 2))
+(define y (list x x))
+#+end_src
+
+with the ~free~ pointer initially ~p1~. What is the final value of ~free~? What pointers represent the values of ~x~ and ~y~?
+
+*** Solution
+
+#+begin_example
+(1 2)  +---+---+  +---+
+    -->| * | *-+->| 2 |
+       +-+-+---+  +---+
+       1 |
+         v
+       +---+
+       | 1 |
+       +---+
+
+((1 2) (1 2))
+       +---+---+  +---+---+
+    -->| * | *-+->| * | / |
+       +-+-+---+  +-+-+---+
+       2 |        3 |
+         +----------+
+         |
+         v
+       +---+---+  +---+
+       | * | *-+->| 2 |
+       +-+-+---+  +---+
+       1 |
+         v
+       +---+
+       | 1 |
+       +---+
+#+end_example
+
+| Index    | 0 | 1  | 2  | 3  | ... |
+|----------+---+----+----+----+-----|
+| the-cars |   | n1 | p1 | p1 | ... |
+| the-cdrs |   | n2 | p3 | e0 | ... |
+
+The final value of ~free~ is ~p6~. The ~p1~ represents the value of ~x~, and the ~p2~ for ~y~.
+
+** Exercise 5.21
+
+Implement register machines for the following procedures. Assume that the list-structure memory operations are available as machine primitives.
+
+a. Recursive ~count-leaves~:
+
+   #+begin_src scheme
+(define (count-leaves tree)
+  (cond ((null? tree) 0)
+        ((not (pair? tree)) 1)
+        (else (+ (count-leaves (car tree))
+                 (count-leaves (cdr tree))))))
+   #+end_src
+
+b. Recursive ~count-leaves~ with explicit counter:
+
+   #+begin_src scheme
+(define (count-leaves tree)
+  (define (count-iter tree n)
+    (cond ((null? tree) n)
+          ((not (pair? tree)) (+ n 1))
+          (else
+           (count-iter (cdr tree)
+                       (count-iter (car tree)
+                                   n)))))
+  (count-iter tree 0))
+   #+end_src
+
+*** Solution
+
+**** Part a
+
+#+begin_src scheme
+(define count-leaves-machine
+  (make-machine
+   '(continue t tree val)
+   (list (list '+ +) (list 'null? null?) (list 'pair? pair?)
+         (list 'car car) (list 'cdr cdr))
+   '(controller
+       (assign continue (label count-done))
+     count-loop
+       (test (op null?) (reg tree))
+       (branch (label base-case))
+       (test (op pair?) (reg tree))
+       (branch (label else-clause))
+       (assign val (const 1))
+       (goto (reg continue))
+    else-clause
+       (save continue)
+       (assign continue (label aftercount-car))
+       (save tree)
+       (assign tree (op car) (reg tree))
+       (goto (label count-loop))
+     aftercount-car
+       (restore tree)
+       (assign tree (op cdr) (reg tree))
+       (assign continue (label aftercount-cdr))
+       (save val)
+       (goto (label count-loop))
+     aftercount-cdr
+       (assign t (reg val))
+       (restore val)
+       (assign val (op +) (reg t) (reg val))
+       (restore continue)
+       (goto (reg continue))
+     base-case
+       (assign val (const 0))
+       (goto (reg continue))
+     count-done)))
+#+end_src
+
+#+begin_src scheme
+(set-register-contents! count-leaves-machine 'tree '(a (b c (d)) (e f) g))
+
+'done
+
+(start count-leaves-machine)
+
+'done
+
+(get-register-contents count-leaves-machine 'val)
+
+7
+#+end_src
+
+**** Part b
+
+#+begin_src scheme
+(define count-leaves-with-counter-machine
+  (make-machine
+   '(continue n tree val)
+   (list (list '+ +) (list 'null? null?) (list 'pair? pair?)
+         (list 'car car) (list 'cdr cdr))
+   '(controller
+       (assign continue (label count-done))
+       (assign n (const 0))
+     count-iter
+       (test (op null?) (reg tree))
+       (branch (label base-case))
+       (test (op pair?) (reg tree))
+       (branch (label else-clause))
+       (assign val (op +) (reg n) (const 1))
+       (goto (reg continue))
+     else-clause
+       (save continue)
+       (assign continue (label aftercount-inner))
+       (save tree)
+       (assign tree (op car) (reg tree))
+       (goto (label count-iter))
+     aftercount-inner
+       (restore tree)
+       (assign tree (op cdr) (reg tree))
+       (assign n (reg val))
+       (assign continue (label aftercount-outter))
+       (goto (label count-iter))
+     aftercount-outter
+       (restore continue)
+       (goto (reg continue))
+     base-case
+       (assign val (reg n))
+       (goto (reg continue))
+     count-done)))
+#+end_src
+
+#+begin_src scheme
+(set-register-contents! count-leaves-with-counter-machine 'tree '(a (b c (d)) (e f) g))
+
+'done
+
+(start count-leaves-with-counter-machine)
+
+'done
+
+(get-register-contents count-leaves-with-counter-machine 'val)
+
+7
+#+end_src
+
+** Exercise 5.22
+
+[[file:chapter-3-exercises.org::*Exercise 3.12][Exercise 3.12]] of Section 3.3.1 presented an ~append~ procedure that appends two lists of form a new list and an ~append!~ procedure that splices two lists together. Design a register machine to implement each of these procedures. Assume that the list-structure memory operations are available as primitive operations.
+
+*** Solution
+
+**** Part a
+
++ Lisp code:
+
+  #+begin_src scheme
+(define (append x y)
+  (if (null? x)
+      y
+      (cons (car x) (append (cdr x) y))))
+  #+end_src
+
++ Register machine:
+
+  #+begin_src scheme
+(define append-machine
+  (make-machine
+   '(continue val x y)
+   (list (list 'null? null?)
+         (list 'cons cons)
+         (list 'car car)
+         (list 'cdr cdr))
+   '(controller
+       (assign continue (label append-done))
+     append-loop
+       (test (op null?) (reg x))
+       (branch (label base-case))
+       (save x)
+       (assign x (op cdr) (reg x))
+       (save continue)
+       (assign continue (label afterappend-cdr))
+       (goto (label append-loop))
+     afterappend-cdr
+       (restore continue)
+       (restore x)
+       (assign x (op car) (reg x))
+       (assign val (op cons) (reg x) (reg val))
+       (goto (reg continue))
+     base-case
+       (assign val (reg y))
+       (goto (reg continue))
+     append-done)))
+  #+end_src
+
++ Test machine running:
+
+  #+begin_src scheme
+(set-register-contents! append-machine 'x '(1 2 3))
+
+'done
+
+(set-register-contents! append-machine 'y '(4 5 6))
+
+'done
+
+(start append-machine)
+
+'done
+
+(get-register-contents append-machine 'val)
+
+'(1 2 3 4 5 6)
+
+(set-register-contents! append-machine 'val '*unassigned*)
+
+'done
+
+(set-register-contents! append-machine 'x '())
+
+'done
+
+(set-register-contents! append-machine 'y '(1 2 3))
+
+'done
+
+(start append-machine)
+
+'done
+
+(get-register-contents append-machine 'val)
+
+'(1 2 3)
+  #+end_src
+
+**** Part b
+
++ Lisp code:
+
+  #+begin_src scheme
+(define (append! x y)
+  (set-cdr! (last-pair x) y)
+  x)
+
+(define (last-pair x)
+  (if (null? (cdr x)) x (last-pair (cdr x))))
+  #+end_src
+
++ Register machine:
+
+  #+begin_src scheme
+(define append!-machine
+  (make-machine
+   '(x y iter-x cdr-x)
+   (list (list 'null? null?)
+         (list 'cdr cdr)
+         (list 'set-cdr! set-cdr!))
+   '(controller
+       (assign iter-x (reg x))
+     last-pair
+       (assign cdr-x (op cdr) (reg iter-x))
+       (test (op null?) (reg cdr-x))
+       (branch (label append))
+       (assign iter-x (reg cdr-x))
+       (goto (label last-pair))
+     append
+       (perform (op set-cdr!) (reg iter-x) (reg y))
+     done)))
+  #+end_src
+
++ Test machine running:
+
+  #+begin_src scheme
+(set-register-contents! append!-machine 'x '(1 2 3))
+
+'done
+
+(set-register-contents! append!-machine 'y '(4 5 6))
+
+'done
+
+(start append!-machine)
+
+'done
+
+(get-register-contents append!-machine 'x)
+
+'(1 2 3 4 5 6)
+
+(get-register-contents append!-machine 'y)
+
+'(4 5 6)
+  #+end_src
+
+** Exercise 5.23
+
+Extend the evaluator to handle derived expressions such as ~cond~, ~let~, and so on (Section 4.1.2). You may "cheat" and assume that the syntax transformers such as ~cond->if~ are available as machine operations.[fn:28]
+
+*** Solution
+
+#+begin_src scheme
+eval-dispatch
+  ...
+  (test (op cond?) (reg exp))
+  (branch (label ev-cond))
+  (test (op let?) (reg exp))
+  (branch (label ev-let))
+  (test (op let*?) (reg exp))
+  (branch (label ev-let*))
+  ...
+ev-cond
+  (assign exp (op cond->if) (reg exp))
+  (goto (label ev-if))
+ev-let
+  (assign exp (op let->combination) (reg exp))
+  (goto (label ev-lambda))
+ev-let*
+  (assign exp (op let*->nested-lets) (reg exp))
+  (goto (label ev-let))
+#+end_src
+
+** Exercise 5.24
+
+Implement ~cond~ as a new basic special form without reducing it to ~if~. You will have to construct a loop that tests the predicates of successive ~cond~ clauses until you find one that is true, and then use ~ev-sequence~ to evaluate the actions of the clause.
+
+*** Solution
+
+#+begin_src scheme
+ev-cond
+  (save continue)
+  (assign unev (op cond-clauses) (reg exp))
+ev-cond-loop
+  (test (op null?) (reg unev))
+  (branch (label ev-cond-unspec))
+  (assign exp (op cond-first-predicate) (reg unev))
+  (test (op cond-else-clause?) (reg exp))
+  (branch (label ev-cond-consequent))
+  (save unev)
+  (save env)
+  (assign continue (label ev-cond-decide))
+  (goto (label eval-dispatch))
+ev-cond-decide
+  (restore env)
+  (restore unev)
+  (test (op true?) (reg val))
+  (branch (label ev-cond-consequent))
+  (assign unev (op cond-rest-clauses) (reg unev))
+  (goto (label ev-cond-loop))
+ev-cond-consequent
+  (assign unev (op cond-first-action) (reg unev))
+  (goto (label ev-sequence))
+ev-cond-unspec
+  (assign val (const false))
+  (restore continue)
+  (goto (reg continue))
+#+end_src
+
+** Exercise 5.25
+
+Modify the evaluator so that it uses normal-order evaluation, based on the lazy evaluator of Section 4.2.
+
+*** Solution
+
+Ref: [[http://community.schemewiki.org/?sicp-ex-5.25][sicp-ex-5.25]]
+
+** Exercise 5.26
+
+Use the monitored stack to explore the tail-recursive property of the evaluator (Section 5.4.2). Start the evaluator and define the iterative ~factorial~ procedure from Section 1.2.1:
+
+#+begin_src scheme
+(define (factorial n)
+  (define (iter product counter)
+    (if (> counter n)
+        product
+        (iter (* counter product) (+ counter 1))))
+  (iter 1 1))
+#+end_src
+
+Run the procedure with some small values of $n$. Record the maximum stack depth and the number of pushes required to compute $n!$ for each of these values.
+
+a. You will find that the maximum depth required to evaluate $n!$ is independent of $n$. What is that depth?
+b. Determine from your data a formula in terms of $n$ for the total number of push operations used in evaluating $n!$ for any $n\ge1$. Note that the number of operations used is a linear function of $n$ and is thus determined by two constants.
+
+*** Solution
+
+| No. | Total Pushes | Maximum Depth |
+|-----+--------------+---------------|
+|   5 |          204 |            10 |
+|   6 |          239 |            10 |
+|   7 |          274 |            10 |
+|   8 |          309 |            10 |
+|   9 |          344 |            10 |
+|  10 |          379 |            10 |
+
+**** Part a
+
+The maximum depth required to evaluate $n!$ is 10.
+
+**** Part b
+
+$$\textrm{total-pushes}=35\times\mathrm{n}+29$$.
+
+** Exercise 5.27
+
+For comparison with [[*Exercise 5.26][Exercise 5.26]], explore the behavior of the following procedure for computing factorials recursively:
+
+#+begin_src scheme
+(define (factorial n)
+  (if (= n 1) 1 (* (factorial (- n 1)) n)))
+#+end_src
+
+By running this procedure with the monitored stack, determine, as a function of $n$, the maximum depth of the stack and the total number of pushes used in evaluating $n!$ for $n\ge1$. (Again, these functions will be linear.) Summarize your experiments by filling in the following table with the appropriate expressions in terms of $n$:
+
+|                     | Maximum depth | Number of pushes |
+|---------------------+---------------+------------------|
+| Recursive factorial |               |                  |
+| Iterative factorial |               |                  |
+
+The maximum depth is a measure of the amount of space used by the evaluator in carrying out the computation, and the number of pushes correlates well with the time required.
+
+*** Solution
+
+| No. | Total Pushes | Maximum Depth |
+|-----+--------------+---------------|
+|   5 |          144 |            28 |
+|   6 |          176 |            33 |
+|   7 |          208 |            38 |
+|   8 |          240 |            43 |
+|   9 |          272 |            48 |
+|  10 |          304 |            53 |
+
+|                     | Maximum depth | Number of pushes |
+|---------------------+---------------+------------------|
+|                     |      <c>      |       <c>        |
+| Recursive factorial |    5n + 3     |     32n - 16     |
+| Iterative factorial |      10       |     35n + 29     |
+
+** Exercise 5.28
+
+Modify the definition of the evaluator by changing ~eval-sequence~ as described in Section 5.4.2 so that the evaluator is no longer tail-recursive. Rerun your experiments from [[*Exercise 5.26][Exercise 5.26]] and [[*Exercise 5.27][Exercise 5.27]] to demonstrate that both versions of the ~factorial~ procedure now require space that grows linearly with their input.
+
+*** Solution
+
+Recursive factorial:
+
+| No. | Total Pushes | Maximum Depth |
+|-----+--------------+---------------|
+|   5 |          154 |            43 |
+|   6 |          188 |            51 |
+|   7 |          222 |            59 |
+|   8 |          256 |            67 |
+|   9 |          290 |            75 |
+|  10 |          324 |            83 |
+
+Iterative factorial:
+
+| No. | Total Pushes | Maximum Depth |
+|-----+--------------+---------------|
+|   5 |          218 |            29 |
+|   6 |          255 |            32 |
+|   7 |          292 |            35 |
+|   8 |          329 |            38 |
+|   9 |          366 |            41 |
+|  10 |          403 |            44 |
+
+|                     | Maximum depth | Number of pushes |
+|---------------------+---------------+------------------|
+|                     |      <c>      |       <c>        |
+| Recursive factorial |    8n + 3     |     34n - 16     |
+| Iterative factorial |    3n + 14    |     37n + 33     |
+
+** Exercise 5.29
+
+Monitor the stack operations in the tree-recursive Fibonacci computation:
+
+#+begin_src scheme
+(define (fib n)
+  (if (< n 2)
+      n
+      (+ (fib (- n 1)) (fib (- n 2)))))
+#+end_src
+
+a. Give a formula in terms of $n$ for the maximum depth of the stack required to compute $\mathrm{Fib}(n)$ for $n\ge2$. Hint: In Section 1.2.2 we argued that the space used by this process grows linearly with $n$.
+b. Give a formula for the total number of pushes used to compute $\mathrm{Fib}(n)$ for $n\ge2$. You should find that the number of pushes (which correlates well with the time used) grows exponentially with $n$. Hint: Let $\mathrm{S}(n)$ be the number of pushes used in computing $\mathrm{Fib}(n)$. You should be able to argue that there is a formula that expresses $\mathrm{S}(n)$ in terms of $\mathrm{S}(n-1)$, $\mathrm{S}(n-2)$, and some fixed "overhead" constant $k$ that is independent of $n$. Give the formula, and say what $k$ is. Then show that $\mathrm{S}(n)$ can be expressed as $a\cdot\mathrm{Fib}(n+1)+b$ and give the values of $a$ and $b$.
+
+*** Solution
+
+| No. | Fibonacci | Total Pushes | Maximum Depth |
+|-----+-----------+--------------+---------------|
+|   2 |         1 |           72 |            13 |
+|   3 |         2 |          128 |            18 |
+|   4 |         3 |          240 |            23 |
+|   5 |         5 |          408 |            28 |
+|   6 |         8 |          688 |            33 |
+|   7 |        13 |         1136 |            38 |
+|   8 |        21 |         1864 |            43 |
+
+**** Part a
+
+$$\textrm{max-depth}=5\cdot n+3$$
+
+**** Part b
+
+\begin{align*}
+k&=240-(72+128)\\
+ &=408-(128+240)\\
+ &=40
+\end{align*}
+
+\begin{align*}
+\because & \mathrm{S}(n)=a\cdot\mathrm{Fib}(n+1)+b\\
+\therefore & \mathrm{S}(2)=a\cdot\mathrm{Fib}(3)+b\\
+& \mathrm{S}(3)=a\cdot\mathrm{Fib}(4)+b\\
+& \mathrm{S}(4)=a\cdot\mathrm{Fib}(5)+b\\
+\therefore & \mathrm{S}(2)=a\cdot2+b\\
+& \mathrm{S}(3)=a\cdot3+b\\
+& \mathrm{S}(4)=a\cdot5+b\\
+\because & \mathrm{S}(2)+\mathrm{S}(3)+k=\mathrm{S}(4)\\
+\because & \mathrm{S}(2)=72\\
+\therefore & \begin{cases}
+a&=56\\
+b&=-40
+\end{cases}\\
+\therefore & \mathrm{S}(n)=56\cdot\mathrm{Fib}(n+1)-40
+\end{align*}
+
+** Exercise 5.30
+
+Our evaluator currently catches and signals only two kinds of errors--unknown expression types and unknown procedure types. Other errors will take us out of the evaluator read-eval-print loop. When we run the evaluator using the register-machine simulator, these errors are caught by the underlying Scheme system. This is analogous to the computer crashing when a use program makes an error.[fn:32] It is a large project to make a real error system work, but it is well worth the effort to understand what is involved here.
+
+a. Errors that occur in the evaluation process, such as an attempt to access an unbound variable, could be caught by changing the lookup operation to make it return a distinguished condition code, which cannot be a possible value of any user variable. The evaluator can test for this condition code and then do what is necessary to go to ~signal-error~. Find all of the places in the evaluator where such a change is necessary and fix them. This is lots of work.
+b. Much worse is the problem of handling errors that are signaled by applying primitive procedures, such as an attempt to divide by zero or an attempt to extract the ~car~ of a symbol. In a professionally written high-quality system, each primitive application is checked for safety as part of the primitive. For example, every call to ~car~ could first check that the argument is a pair. If the argument is not a pair, the application would return a distinguished condition code to the evaluator, which would then report the failure. We could arrange for this in our register-machine simulator by making each primitive procedure check for applicability and returning an appropriate distinguished condition code on failure. Then the ~primitive-apply~ code in the evaluator can check for the condition code and go to ~signal-error~ if necessary. Build this structure and make it work. This is a major project.
+
+*** Solution
+
+[[http://community.schemewiki.org/?sicp-ex-5.30][sicp-ex-5.30]]
+
+** Exercise 5.31
+
+In evaluating a procedure application, the explicit-control evaluator always saves and restores the ~env~ register around the evaluation of the operator, saves and restores ~env~ around the evaluation of each operand (except the final one), saves and restores ~argl~ around the evaluation of each operand, and saves and restores ~proc~ around the evaluation of the operand sequence. For each of the following combinations, say which of these ~save~ and ~restore~ operations are superfluous and thus could be eliminated by the compiler's ~preserving~ mechanism:
+
+#+begin_src scheme
+(f 'x 'y)
+((f) 'x 'y)
+(f (g 'x) y)
+(f (g 'x) 'y)
+#+end_src
+
+*** Solution
+
+[[http://community.schemewiki.org/?sicp-ex-5.31][sicp-ex-5.31]]
+
+** Exercise 5.32
+
+Using the ~preserving~ mechanism, the compiler will avoid saving and restoring ~env~ around the evaluation of the operator of a combination in the case where the operator is a symbol. We could also build such optimizations into the evaluator. Indeed, the explicit-control evaluator of Section 5.4 already performs a similar optimization, by treating combinations with no operands as a special case.
+
+a. Extend the explicit-control evaluator to recognize as a separate class of expressions combinations whose operator is a symbol, and to take advantage of this fact in evaluating such expressions.
+b. Alyssa P. Hacker suggests that by extending the evaluator to recognize more and more special cases we could incorporate all the compiler's optimizations, and that this would eliminate the advantage of compilation altogether. What do you think of this idea?
+
+*** Solution
+
+[[http://community.schemewiki.org/?sicp-ex-5.32][sicp-ex-5.32]]
+
+** Exercise 5.55
+
+Consider the following definition of a factorial procedure, which is slightly different from the one given above:
+
+#+begin_src scheme
+(define (factorial-alt n)
+  (if (= n 1)
+      1
+      (* n (factorial-alt (- n 1)))))
+#+end_src
+
+Compile this procedure and compare the resulting code with that produced for ~factorial~. Explain any differences you find. Does either program execute more efficiently than the other?
+
+*** Solution
+
+[[http://community.schemewiki.org/?sicp-ex-5.33][sicp-ex-5.33]]
+
+** Exercise 5.34
+
+Compile the iterative factorial procedure
+
+#+begin_src scheme
+(define (factorial n)
+  (define (iter product counter)
+    (if (> counter n)
+        product
+        (iter (* counter product)
+              (+ counter 1))))
+  (iter 1 1))
+#+end_src
+
+Annotate the resulting code, showing the essential difference between the code for iterative and recursive versions of ~factorial~ that makes one process build up stack space and the other run in constant stack space.
+
+*** Solution
+
+#+begin_src scheme
+;; construct the procedure and skip over code for the procedure body
+ (assign val
+         (op make-compiled-procedure)
+         (label entry36)
+         (reg env))
+ (goto (label after-lambda35))
+entry36    ; calls to factorial will enter here
+ (assign env (op compiled-procedure-env) (reg proc))
+ (assign env
+         (op extend-environment)
+         (const (n))
+         (reg argl)
+         (reg env))
+;; begin actual procedure body
+;; construct the iter procedure and skip over code for the body
+ (assign val
+         (op make-compiled-procedure)
+         (label entry41)
+         (reg env))
+ (goto (label after-lambda40))
+entry41    ; calls to iter will enter here
+ (assign env (op compiled-procedure-env) (reg proc))
+ (assign env
+         (op extend-environment)
+         (const (product counter))
+         (reg argl)
+         (reg env))
+;; begin actual iter procedure body
+ (save continue)
+ (save env)
+;; computer (> counter n)
+ (assign proc
+         (op lookup-variable-value)
+         (const >)
+         (reg env))
+ (assign val
+         (op lookup-variable-value)
+         (const n)
+         (reg env))
+ (assign argl (op list) (reg val))
+ (assign val
+         (op lookup-variable-value)
+         (const counter)
+         (reg env))
+ (assign argl (op cons) (reg val) (reg argl))
+ (test (op primitive-procedure?) (reg proc))
+ (branch (label primitive-branch56))
+compiled-branch55
+ (assign continue (label after-call54))
+ (assign val (op compiled-procedure-entry) (reg proc))
+ (goto (reg val))
+primitive-branch56
+ (assign val
+         (op apply-primitive-procedure)
+         (reg proc)
+         (reg argl))
+after-call54    ; val now contains result of (> counter n)
+ (restore env)
+ (restore continue)
+ (test (op false?) (reg val))
+ (branch (label false-branch43))
+true-branch44    ; return product
+ (assign val
+         (op lookup-variable-value)
+         (const product)
+         (reg env))
+ (goto (reg continue))
+false-branch43
+;; compute and return (iter (* counter product) (+ counter 1))
+ (assign proc
+         (op lookup-variable-value)
+         (const iter)
+         (reg env))
+ (save continue)
+ (save proc)    ; save iter procedure
+ (save env)
+;; compute (+ counter 1), which is the other argument for iter
+ (assign proc
+         (op lookup-variable-value)
+         (const +)
+         (reg env))
+ (assign val (const 1))
+ (assign argl (op list) (reg val))
+ (assign val
+         (op lookup-variable-value)
+         (const counter)
+         (reg env))
+ (assign argl (op cons) (reg val) (reg argl))
+ (test (op primitive-procedure?) (reg proc))
+ (branch (label primitive-branch50))
+compiled-branch49
+ (assign continue (label after-call48))
+ (assign val (op compiled-procedure-entry) (reg proc))
+ (goto (reg val))
+primitive-branch50
+ (assign val
+         (op apply-primitive-procedure)
+         (reg proc)
+         (reg argl))
+after-call48
+ (assign argl (op list) (reg val))
+ (restore env)
+ (save argl)    ; save partial argument list for iter
+;; compute (* counter product), which is the other argument for iter
+ (assign proc
+         (op lookup-variable-value)
+         (const *)
+         (reg env))
+ (assign val
+         (op lookup-variable-value)
+         (const product)
+         (reg env))
+ (assign argl (op list) (reg val))
+ (assign val
+         (op lookup-variable-value)
+         (const counter)
+         (reg env))
+ (assign argl (op cons) (reg val) (reg argl))
+ (test (op primitive-procedure?) (reg proc))
+ (branch (label primitive-branch47))
+compiled-branch46
+ (assign continue (label after-call45))
+ (assign val (op compiled-procedure-entry) (reg proc))
+ (goto (reg val))
+primitive-branch47
+ (assign val
+         (op apply-primitive-procedure)
+         (reg proc)
+         (reg argl))
+after-call45    ; val now contains result of (* counter product)
+ (restore argl)    ; restore argument lists for iter
+ (assign argl (op cons) (reg val) (reg argl))
+ (restore proc)    ; restore iter
+ (restore continue)
+;; recusively apply iter
+ (test (op primitive-procedure?) (reg proc))
+ (branch (label primitive-branch53))
+compiled-branch52
+ (assign val (op compiled-procedure-entry) (reg proc))
+ (goto (reg val))
+primitive-branch53
+ (assign val
+         (op apply-primitive-procedure)
+         (reg proc)
+         (reg argl))
+ (goto (reg continue))
+after-call51    ; val now contains result of (iter (* counter product) (+ counter 1))
+after-if42
+after-lambda40
+;; assign the procedure to the variable iter
+ (perform (op define-variable!)
+          (const iter)
+          (reg val)
+          (reg env))
+ (assign val (const ok))
+ (assign proc
+         (op lookup-variable-value)
+         (const iter)
+         (reg env))
+ (assign val (const 1))
+ (assign argl (op list) (reg val))
+ (assign val (const 1))
+ (assign argl (op cons) (reg val) (reg argl))
+;; apply iter
+ (test (op primitive-procedure?) (reg proc))
+ (branch (label primitive-branch39))
+compiled-branch38
+ (assign val (op compiled-procedure-entry) (reg proc))
+ (goto (reg val))
+primitive-branch39
+ (assign val (op apply-primitive-procedure) (reg proc) (reg argl))
+ (goto (reg continue))
+after-call37
+after-lambda35
+;; assign the procedure to the variable factorial
+ (perform (op define-variable!)
+          (const factorial)
+          (reg val)
+          (reg env))
+ (assign val (const ok))
+#+end_src
+
+[[http://community.schemewiki.org/?sicp-ex-5.34][sicp-ex-5.34]]
+
+** Exercise 5.35
+
+What expression was compiled to produce the code shown in [[https://sarabander.github.io/sicp/html/5_002e5.xhtml#Figure-5_002e18][Figure 5.18]]?
+
+*** Solution
+
+#+begin_src scheme
+(define (f x)
+  (+ x (g (+ x 2))))
+#+end_src
+
+** Exercise 5.36
+
+What order of evaluation does our compiler produce for operands of a combination? Is it left-to-right, right-to-left, or some other order? Where in the compiler is this order determined? Modify the compiler so that it produces some other order of evaluation. (See the discussion of order of evaluation for the explicit-control evaluator in Section 5.4.1.) How does changing the order of operand evaluation affect the efficiency of the code that constructs the argument list?
+
+*** Solution
+
+[[http://community.schemewiki.org/?sicp-ex-5.36][sicp-ex-5.36]]
+
+** Exercise 5.37
+
+One way to understand the compiler's ~preserving~ mechanism for optimizing stack usage is to see what extra operations would be generated if we did not use this idea. Modify ~preserving~ so that it always generates the ~save~ the ~restore~ operations. Compile some simple expressions and identify the unnecessary stack operations that are generated. Compare the code to that generated with the ~preserving~ mechanism intact.
+
+*** Solution
+
+[[http://community.schemewiki.org/?sicp-ex-5.37][sicp-ex-5.37]]
+
+** Exercise 5.38
+
+Our compiler is clever about avoiding unnecessary stack operations, but it is not clever at all when it comes to compiling calls to the primitive procedures of the language in terms of the primitive operations supplied by the machine. For example, consider how much code is compiled to compute ~(+ a 1)~: The code sets up an argument list in ~argl~, puts the primitive addition procedure (which it finds by looking up the symbol ~+~ in the environment) into ~proc~, and tests whether the procedure is primitive or compound. The compiler always generates code to perform the test, as well as code for primitive and compound branches (only one of which will be executed). We have not shown the part of the controller that implements primitives, but we presume that these instructions make use of primitive arithmetic operations in the machine's data paths. Consider how much less code would be generated if the compiler could /open-code/ primitives--that is, if it could generate code to directly use these primitive machine operations. The expression ~(+ a 1)~ might be compiled into something as simple as[fn:43]
+
+#+begin_src scheme
+(assign
+ val (op lookup-variable-value) (const a) (reg env))
+(assign val (op +) (reg val) (const 1))
+#+end_src
+
+In this exercise we will extend our compiler to support open coding of selected primitives. Special-purpose code will be generated for calls to these primitive procedures instead of the general procedure-application code. In order to support this, we will augment our machine with special argument registers ~arg1~ and ~arg2~. The primitive arithmetic operations of the machine will take their inputs from ~arg1~ and ~arg2~. The results may be put into ~val~, ~arg1~, or ~arg2~.
+
+The compiler must be able to recognize the application of an open-coded primitive in the source program. We will augment the dispatch in the ~compile~ procedure to recognize the names of these primitives in addition to the reserved words (the special forms) it currently recognizes.[fn:44] For each special form our compiler has a code generator. In this exercise we will construct a family of code generators for the open-coded primitives.
+
+a. The open-coded primitives, unlike the special forms, all need their operands evaluated. Write a code generator ~spread-arguments~ for use by all the open-coding code generators. ~spread-arguments~ should take an operand list and compile the given operands targeted to successive argument registers. Note that an operand may contain a call to an open-coded primitive, so argument registers will have to be preserved during operand evaluation.
+b. For each of the primitive procedures ~=~, ~*~, ~-~, and ~+~, write a code generator that takes a combination with that operator, together with a target and a linkage descriptor, and produces code to spread the arguments into the registers and then perform the operation targeted to the given target with the given linkage. You need only handle expressions with two operands. Make ~compile~ dispatch to these code generators.
+c. Try your new compiler on the ~factorial~ example. Compare the resulting code with the result produced without open coding.
+d. Extend your code generators for ~+~ and ~*~ so that they can handle expressions with arbitrary numbers of operands. An expression with more than two operands will have to be compiled into a sequence of operations, each with only two inputs.
+
+*** Solution
+
+[[http://community.schemewiki.org/?sicp-ex-5.38][sicp-ex-5.38]]
+
+** Exercise 5.39
+
+Write a procedure ~lexical-address-lookup~ that implements the new lookup operation. It should take two arguments--a lexical address and a run-time environment--and return the value of the variable stored at the specified lexical address. ~lexical-address-lookup~ should signal an error if the value of the variable is the symbol ~*unassigned*~.[fn:46] Also write a procedure ~lexical-address-set!~ that implements the operation that changes the value of the variable at a specified lexical address.
+
+*** Solution
+
+#+begin_src scheme
+(define (make-lexical-address frame-num displacement)
+  (list frame-num displacement))
+(define (frame-num address) (car address))
+(define (displacement address) (cadr address))
+(define (lexical-address-lookup address env)
+  (let ((frame (list-ref env (frame-num address))))
+    (let ((value (list-ref (frame-values frame) (displacement address))))
+      (if (eq? value '*unassigned*)
+          (error "Unassigned variable: COMPILE" address)
+          value))))
+(define (lexical-address-set! address val env)
+  (let ((frame (list-ref env (frame-num address))))
+    (list-set! (frame-values frame) (displacement address) val)))
+#+end_src
+
+** Exercise 5.40
+
+Modify the compiler to maintain the compile-time environment as described above. That is, add a compile-time-environment argument to ~compile~ and the various code generators, and extend it in ~compile-lambda-body~.
+
+*** Solution
+
+#+begin_src scheme
+; add a compile-time-environment argument
+(define (compile exp target linkage ctenv)
+  (cond ((self-evaluating? exp)
+         (compile-self-evaluating exp target linkage))
+        ((quoted? exp) (compile-quoted exp target linkage))
+        ((variable? exp)
+         (compile-variable exp target linkage ctenv))
+        ((assignment? exp)
+         (compile-assignment exp target linkage ctenv))
+        ((definition? exp)
+         (compile-definition exp target linkage ctenv))
+        ((if? exp) (compile-if exp target linkage ctenv))
+        ((lambda? exp) (compile-lambda exp target linkage ctenv))
+        ((begin? exp)
+         (compile-sequence
+          (begin-actions exp) target linkage ctenv))
+        ((cond? exp)
+         (compile (cond->if exp) target linkage ctenv))
+        ((application? exp)
+         (compile-application exp target linkage ctenv))
+        (else
+         (error "Unknown expression type: COMPILE" exp))))
+; extend it in compile-lambda-body
+(define (extend-ctenv frame ctenv)
+  (cons frame ctenv))
+(define (compile-lambda-body exp proc-entry ctenv)
+  (let ((formals (lambda-parameters exp)))
+    (append-instruction-sequences
+     (make-instruction-sequence '(env proc argl) '(env)
+                                `(,proc-entry
+                                  (assign env
+                                          (op compiled-procedure-env)
+                                          (reg proc))
+                                  (assign env
+                                          (op extend-environment)
+                                          (const ,formals)
+                                          (reg argl)
+                                          (reg env))))
+     (compile-sequence (lambda-body exp) 'val 'return (extend-ctenv formals ctenv)))))
+#+end_src
+
+** Exercise 5.41
+
+Write a procedure ~find-variable~ that takes as arguments a variable and a compile-time environment and returns the lexical address of the variable with respect to that environment. For example, in the program fragment that is shown above, the compile-time environment during the compilation of expression $\langle e1\rangle$ is ~((y z) (a b c d e) (x y))~. ~find-variable~ should produce
+
+#+begin_src scheme
+(find-variable 'c '((y z) (a b c d e) (x y)))
+(1 2)
+(find-variable 'x '((y z) (a b c d e) (x y)))
+(2 0)
+(find-variable 'w '((y z) (a b c d e) (x y)))
+not-found
+#+end_src
+
+*** Solution
+
+#+name: find-variable
+#+begin_src scheme :noweb yes
+(define (find-variable var env)
+  (define (lookup-frame num frames)
+    (if (null? frames)
+        'not-found
+        (let ((displacement (lookup-variable 0 (car frames))))
+          (if displacement
+              (list num displacement)
+              (lookup-frame (+ num 1) (cdr frames))))))
+  (define (lookup-variable displacement frame)
+    (cond ((null? frame) false)
+          ((eq? var (car frame)) displacement)
+          (else (lookup-variable (+ displacement 1) (cdr frame)))))
+  (lookup-frame 0 env))
+#+end_src
+
+#+begin_src scheme :noweb yes :results output
+<<find-variable>>
+(display (find-variable 'c '((y z) (a b c d e) (x y)))) (newline)
+(display (find-variable 'x '((y z) (a b c d e) (x y)))) (newline)
+(display (find-variable 'w '((y z) (a b c d e) (x y)))) (newline)
+#+end_src
+
+#+RESULTS:
+: (1 2)
+: (2 0)
+: not-found
+
+** Exercise 5.42
+
+Using ~find-variable~ from [[*Exercise 5.41][Exercise 5.41]], rewrite ~compile-variable~ and ~compile-assignment~ to output lexical-address instructions. In cases where ~find-variable~ returns ~not-found~ (that is, where the variable is not in the compile-time environment), you should have the code generators use the evaluator operations, as before, to search for the binding. (The only place a variable that is not found at compile time can be is in the global environment, which is part of the run-time environment but is not part of the compile-time environment.[fn:47] Thus, if you wish, you may have the evaluator operations look directly in the global environment, which can be obtained with the operation ~(op get-global-environment)~, instead of having them search the whole run-time environment found in ~env~.) Test the modified compiler on a few simple cases, such as the nested ~lambda~ combination at the beginning of this section.
+
+*** Solution
+
+#+begin_src scheme
+(define (compile-variable exp target linkage ctenv)
+  (let ((addr (find-variable exp ctenv))
+        (proc '*unassigned*)
+        (ref '*unassigned*))
+    (if (eq? addr 'not-found)
+        (begin (set! proc 'lookup-variable-value)
+               (set! ref  exp))
+        (begin (set! proc 'lexical-address-lookup)
+               (set! ref  addr)))
+    (end-with-linkage linkage
+                      (make-instruction-sequence '(env) (list target)
+                                                 `((assign ,target
+                                                           (op ,proc)
+                                                           (const ,ref)
+                                                           (reg env)))))))
+(define (compile-assignment exp target linkage ctenv)
+  (let ((var (assignment-variable exp))
+        (get-value-code
+         (compile (assignment-value exp) 'val 'next ctenv)))
+    (let ((addr (find-variable var ctenv))
+          (proc '*unassigned*)
+          (ref '*unassigned*))
+      (if (eq? addr 'not-found)
+          (begin (set! proc 'set-variable-value!)
+                 (set! ref  var))
+          (begin (set! proc 'lexical-address-set!)
+                 (set! ref  addr)))
+      (end-with-linkage linkage
+                        (preserving '(env)
+                                    get-value-code
+                                    (make-instruction-sequence '(env val) (list target)
+                                                               `((preform (op ,proc)
+                                                                          (const ,ref)
+                                                                          (reg val)
+                                                                          (reg env))
+                                                                 (assign ,target (const ok)))))))))
+#+end_src
+
+** Exercise 5.43
+
+We argued in Section 4.1.6 that internal definitions for block structure should not be considered "real" ~define~​s. Rather, a procedure body should be interpreted as if the internal variables being defined were installed as ordinary ~lambda~ variables initialized to their correct values using ~set!~. Section 4.1.6 and [[file:chapter-4-exercises.org::*Exercise 4.16][Exercise 4.16]] showed how to modify the metacircular interpreter to accomplish this by scanning out internal definitions. Modify the compiler to preform the same transformation before it compiles a procedure boyd.
+
+*** Solution
+
+#+begin_src scheme
+(define (make-assignment var exp)
+  (list 'set! var exp))
+(define (scan-out-defines body)
+  (define (collect seq defs exps)
+    (if (null? seq)
+        (cons defs exps)
+        (if (definition? (car seq))
+            (collect (cdr seq) (cons (car seq) defs) exps)
+            (collect (cdr seq) defs (cons (car seq) exps)))))
+  (let ((pair (collect body '() '())))
+    (let ((defs (car pair))
+          (exps (cdr pair)))
+      (append (map (lambda (def)
+                     (make-assignment (definition-variable def)
+                                      (definition-value def)))
+                   defs)
+              exps))))
+(define (compile-lambda-body exp proc-entry ctenv)
+  (let ((formals (lambda-parameters exp)))
+    (append-instruction-sequences
+     (make-instruction-sequence '(env proc argl) '(env)
+                                `(,proc-entry
+                                  (assign env
+                                          (op compiled-procedure-env)
+                                          (reg proc))
+                                  (assign env
+                                          (op extend-environment)
+                                          (const ,formals)
+                                          (reg argl)
+                                          (reg env))))
+     (compile-sequence
+      (scan-out-defines (lambda-body exp))
+      'val
+      'return
+      (extend-ctenv formals ctenv)))))
+#+end_src
+
+** Exercise 5.44
+
+In this section we have focused on the use of the compile-time environment to produce lexical addresses. But there are other uses for compile-time environments. For instance, in [[*Exercise 5.38][Exercise 5.38]] we increased the efficiency of compiled code by open-coding primitive procedures. Our implementation treated the names of open-coded procedures as reserved words. If a program were to rebind such a name, the mechanism described in [[*Exercise 5.38][Exercise 5.38]] would still open-code it as a primitive, ignoring the new binding. For example, consider the procedure
+
+#+begin_src scheme
+(lambda (+ * a b x y)
+  (+ (* a x) (* b y)))
+#+end_src
+
+which computes a linear combination of ~x~ and ~y~. We might call it with arguments ~+matrix~, ~*matrix~, and four matrices, but the open-coding compiler would still open-code the ~+~ and the ~*~ in ~(+ (* a x) (* b y))~ as primitive ~+~ and ~*~. Modify the open-coding compiler to consult the compile-time environment in order to compile the correct code for expressions involving the names of primitive procedures. (The code will work correctly as long as the program does not ~define~ or ~set!~ these names.)
+
+*** Solution
+
+[[http://community.schemewiki.org/?sicp-ex-5.44][sicp-ex-5.44]]
+
+** Exercise 5.45
+
+By comparing the stack operations used by compiled code to the stack operations used by the evaluator for the same computation, we can determine the extent to which the compiler optimizes use of the stack, both in speed (reducing the total number of stack operations) and in space (reducing the maximum stack depth). Comparing this optimized stack use to the performance of a special-purpose machine for the same computation gives some indication of the quality of the compile.
+
+a. [[*Exercise 5.27][Exercise 5.27]] asked you to determine, as a function of $n$, the number of pushes and the maximum stack depth needed by the evaluator to computer $n!$ using the recursive factorial procedure given above. [[*Exercise 5.14][Exercise 5.14]] asked you to do the same measurements for the special-purpose factorial machine shown in [[https://sarabander.github.io/sicp/html/5_002e1.xhtml#Figure-5_002e11][Figure 5.11]]. Now perform the same analysis using the compiled ~factorial~ procedure.
+
+   Take the ratio of the number of pushes in the compiled version to the number of pushes in the interpreted version, and do the same for the maximum stack depth. Since the number of operations and the stack depth used to compute $n!$ are linear in $n$, these ratios should approach constants as $n$ becomes large. What are these constants? Similarly, find the ratios of the stack usage in the special-purpose machine to the usage in the interpreted version.
+
+   Compare the ratios for special-purpose versus interpreted code to the ratios for compiled versus interpreted code. You should find that the special-purpose machine does much better than the compiled code, since the hand-tailored controller code should be much better thn what is produced by our rudimentary general-purpose compiler.
+
+b. Can you suggest improvements to the compiler that would help it generate code that would come closer in performance to the hand-tailored version?
+
+*** Solution
+
+**** Part a
+
+| No. | Total Pushes | Maximum Depth |
+|-----+--------------+---------------|
+|   5 |           31 |            14 |
+|   6 |           37 |            17 |
+|   7 |           43 |            20 |
+|   8 |           49 |            23 |
+|   9 |           55 |            26 |
+|  10 |           61 |            29 |
+
+$i$ for *interpreted*.
+
+\begin{align*}
+\mathrm{T_i}&=32\cdot n-16\\
+\mathrm{M_i}&=5\cdot n+3
+\end{align*}
+
+$c$ for *compiled*.
+
+\begin{align*}
+\mathrm{T_c}&=6\cdot n+1\\
+\mathrm{M_c}&=3\cdot n-1\\
+\mathrm{R_{T_c}}&=\frac{\mathrm{T_c}}{\mathrm{T_i}}\\
+&=\frac{6\cdot n+1}{32\cdot n-16}\\
+\mathrm{R_{M_c}}&=\frac{\mathrm{M_c}}{\mathrm{M_i}}\\
+&=\frac{3\cdot n-1}{5\cdot n+3}
+\end{align*}
+
+$s$ for *special*.
+
+\begin{align*}
+\mathrm{T_s}&=2\cdot n-2\\
+\mathrm{M_s}&=2\cdot n-2\\
+\mathrm{R_{T_s}}&=\frac{\mathrm{T_s}}{\mathrm{T_i}}\\
+&=\frac{2\cdot n-2}{32\cdot n-16}\\
+\mathrm{R_{M_s}}&=\frac{\mathrm{M_s}}{\mathrm{M_i}}\\
+&=\frac{2\cdot n-2}{5\cdot n+3}
+\end{align*}
+
+The approach *constants*:
+
+\begin{align*}
+\lim\limits_{n \to \infty} \mathrm{R_{T_c}} &= 0.1875 \\
+\lim\limits_{n \to \infty} \mathrm{R_{T_s}} &= 0.0625 \\
+\lim\limits_{n \to \infty} \mathrm{R_{M_c}} &= 0.6 \\
+\lim\limits_{n \to \infty} \mathrm{R_{M_s}} &= 0.4
+\end{align*}
+
+**** Part b
+
+[[http://community.schemewiki.org/?sicp-ex-5.45][sicp-ex-5.45]]
+
+** Exercise 5.46
+
+Carry out an analysis like the one in [[*Exercise 5.45][Exercise 5.45]] to determine the effectiveness of compiling the tree-recursive Fibonacci procedure
+
+#+begin_src scheme
+(define (fib n)
+  (if (< n 2)
+      n
+      (+ (fib (- n 1))
+         (fib (- n 2)))))
+#+end_src
+
+compared to the effectiveness of using the special-purpose Fibonacci machine of [[https://sarabander.github.io/sicp/html/5_002e1.xhtml#Figure-5_002e12][Figure 5.12]]. (for measurement of the interpreted performance, see [[*Exercise 5.29][Exercise 5.29]].) For Fibonacci, the time resource used is not linear in $n$; hence the ratios of stack operations will not approach a limiting value that is independent of $n$.
+
+*** Solution
+
++ *Interpreted* tree-recursive Fibonacci procedure performance:
+
+  \begin{align*}
+  \mathrm{T_i} &= 56\cdot\mathrm{Fib}(n+1)-40\\
+  \mathrm{M_i} &= 5\cdot n+3
+  \end{align*}
+
++ *Compiled* tree-recursive Fibonacci procedure performance:
+
+  | No. | Fibonacci | Total Pushes | Maximum Depth |
+  |-----+-----------+--------------+---------------|
+  |   2 |         1 |           17 |             5 |
+  |   3 |         2 |           27 |             8 |
+  |   4 |         3 |           47 |            11 |
+  |   5 |         5 |           77 |            14 |
+  |   6 |         8 |          127 |            17 |
+  |   7 |        13 |          207 |            20 |
+  |   8 |        21 |          337 |            23 |
+
+  \begin{align*}
+  \mathrm{T_c} &= 10\cdot\mathrm{Fib}(n+1)-3\\
+  \mathrm{M_c} &= 3\cdot n-1
+  \end{align*}
+
++ *Special* tree-recursive Fibonacci procedure performance:
+
+  | No. | Fibonacci | Total Pushes | Maximum Depth |
+  |-----+-----------+--------------+---------------|
+  |   2 |         1 |            4 |             2 |
+  |   3 |         2 |            8 |             4 |
+  |   4 |         3 |           16 |             6 |
+  |   5 |         5 |           28 |             8 |
+  |   6 |         8 |           48 |            10 |
+  |   7 |        13 |           80 |            12 |
+  |   8 |        21 |          132 |            14 |
+
+  \begin{align*}
+  \mathrm{T_s} &= 4\cdot\mathrm{Fib}(n+1)-4\\
+  \mathrm{M_s} &= 2\cdot n-2
+  \end{align*}
+
+** Exercise 5.47
+
+This section described how to modify the explicit-control evaluator so that interpreted code can call compiled procedures. Show how to modify the compiler so that compiled procedures can call not only primitive procedures and compiled procedures, but interpreted procedures as well. This requires modifying ~compile-procedure-call~ to handle the case of compound (interpreted) procedures. Be sure to handle all the same ~target~ and ~linkage~ combinations as in ~compile-proc-appl~. To do the actual procedure application, the code needs to jump to the evaluator's ~compound-apply~ entry point. This label cannot be directly referenced in object code (since the assembler requires that all labels referenced by the code it is assembling be defined there), so we will add a register called ~compapp~ to the evaluator machine to hold this entry point, and add an instruction to initialize it:
+
+#+begin_src scheme
+  (assign compapp (label compound-apply))
+  (branch (label external-entry)) ; branches if flag is set
+read-eval-print-loop ...
+#+end_src
+
+To test your code, start by defining a procedure ~f~ that calls a procedure ~g~. Use ~compile-and-go~ to compile the definition of ~f~ and start the evaluator. Now typing at the evaluator, define ~g~ and try to call ~f~.
+
+*** Solution
+
+#+begin_src scheme
+;; Applying procedures
+(define (compile-procedure-call target linkage)
+  (let ((primitive-branch (make-label 'primitive-branch))
+        (compiled-branch  (make-label 'compiled-branch))
+        (compound-branch  (make-label 'compound-branch))
+        (after-call       (make-label 'after-call)))
+    (let ((comp-linkage
+           (if (eq? linkage 'next) after-call linkage)))
+      (append-instruction-sequences
+       (make-instruction-sequence '(proc) '()
+                                  `((test (op primitive-procedure?) (reg proc))
+                                    (branch (label ,primitive-branch))
+                                    (test (op compound-procedure?) (reg proc))
+                                    (branch (label ,compound-branch))))
+       (parallel-instruction-sequences
+        (parallel-instruction-sequences
+         (append-instruction-sequences
+          compiled-branch
+          (compile-proc-appl target comp-linkage))
+         (append-instruction-sequences
+          compound-branch
+          (compound-proc-appl target comp-linkage)))
+        (append-instruction-sequences
+         primitive-branch
+         (end-with-linkage linkage
+                           (make-instruction-sequence '(proc argl)
+                                                      (list target)
+                                                      `((assign ,target
+                                                                (op apply-primitive-procedure)
+                                                                (reg proc)
+                                                                (reg argl)))))))
+       after-call))))
+;; Applying compound procedures
+(define (compound-proc-appl target linkage)
+  (cond ((and (eq? target 'val) (not (eq? linkage 'return)))
+         (make-instruction-sequence '(proc) all-regs
+                                    `((assign continue (label ,linkage))
+                                      (save continue)
+                                      (goto (reg compapp)))))
+        ((and (not (eq? target 'val))
+              (not (eq? linkage 'return)))
+         (let ((proc-return (make-label 'proc-return)))
+           (make-instruction-sequence '(proc) all-regs
+                                      `((assign continue (label ,proc-return))
+                                        (save continue)
+                                        (goto (reg compapp))
+                                        ,proc-return
+                                        (assign ,target (reg val))
+                                        (goto (label ,linkage))))))
+        ((and (eq? target 'val) (eq? linkage 'return))
+         (make-instruction-sequence
+          '(proc continue)
+          all-regs
+          '((save continue)
+            (goto (reg compapp)))))
+        ((and (not (eq? target 'val))
+              (eq? linkage 'return))
+         (error "return linkage, target not val: COMPILE"
+                target))))
+#+end_src
+
+** Exercise 5.48
+
+The ~compile-and-go~ interface implemented in this section is awkward, since the compiler can be called only once (when the evaluator machine is started). Augment the compiler-interpreter interface by providing a ~compile-and-run~ primitive that can be called from within the explicit-control evaluator as follows:
+
+#+begin_src scheme
+;;; EC-Eval input:
+(compile-and-run
+ '(define (factorial n)
+    (if (= n 1) 1 (* (factorial (- n 1)) n))))
+;;; EC-Eval value:
+ok
+;;; EC-Eval input:
+(factorial 5)
+;;; EC-Eval value:
+120
+#+end_src
+
+*** Solution
+
+#+begin_src scheme
+(define (compile-and-run? exp)
+  (tagged-list? exp 'compile-and-run))
+(define (code-to-compile exp)
+  (cadadr exp))
+(define (assemble-code exp)
+  (assemble
+   (statements
+    (compile exp 'val 'return))
+   eceval))
+
+(define eceval-operations
+  (list
+   ...
+   (list 'compile-and-run? compile-and-run?)
+   (list 'code-to-compile code-to-compile)
+   (list 'assemble-code assemble-code)
+   ))
+
+(define eceval
+  (make-machine
+   ...
+   '(...
+     eval-dispatch
+       (test (op compile-and-run?) (reg exp))
+       (branch (label ev-compile))
+     ...
+     ev-compile
+       (assign val (op code-to-compile) (reg exp))
+       (assign val (op assemble-code) (reg val))
+       (goto (label external-entry))
+     ...)
+   ))
+#+end_src
+
+** Exercise 5.49
+
+As an alternative to using the explicit-control evaluator's read-eval-print loop, design a register machine that performs a read-compile-execute-print loop. That is, the machine should run a loop that reads an expression, compiles it, assembles and executes the resulting code, and prints the result. This is easy to run in our simulated setup, since we can arrange to call the procedures ~compile~ and ~assemble~ as "register-machine operations."
+
+*** Solution
+
+#+begin_src scheme
+(define (compile-and-assemble exp)
+  (assemble
+   (statements
+    (compile exp 'val 'return))
+   rcep-eceval))
+
+(define rcep-eceval-regs '(exp env proc val argl continue))
+
+(define rcep-eceval-operations
+  (append
+   eceval-operations
+   (list (list 'compile-and-assemble compile-and-assemble))))
+
+(define rcep-eceval-instructions
+  '(read-compile-execute-print-loop
+      (perform (op initialize-stack))
+      (perform (op prompt-for-input) (const ";; RECP-EC-EVAL input: "))
+      (assign exp (op read))
+      (assign env (op get-global-environment))
+      (assign continue (label print-results))
+      (assign val (op compile-and-assemble) (reg exp))
+      (goto (reg val))
+    print-results
+      (perform (op print-stack-statistics))
+      (perform (op announce-output) (const ";; RECP-EC-EVAL value: "))
+      (perform (op user-print) (reg val))
+      (goto (label read-compile-execute-print-loop))))
+
+(define rcep-eceval
+  (make-machine
+   rcep-eceval-regs
+   rcep-eceval-operations
+   rcep-eceval-instructions))
+
+(define (start-rcep)
+  (set! the-global-environment (setup-environment))
+  (start rcep-eceval))
+#+end_src
+
+** Exercise 5.50
+
+Use the compiler to compile the metacircular evaluator of Section 4.1 and run this program using the register-machine simulator. (To compile more than one definition at a time, you can package the definitions in a ~begin~.) The resulting interpreter will run very slowly because of the multiple levels of interpretation, but getting all the details to work is an instructive exercise.
+
+*** Solution
+
+See [[file:./src/chap5/exercise-5.50.scm][exercise-5.50.scm]].
+
+** Exercise 5.51
+
+Develop a rudimentary implementation of Scheme in C (or some other low-level language of your choice) by translating the explicit-control evaluator of Section 5.4 into C. In order to run this code you will need to also provide appropriate storage-allocation routines and other run-time support.
+
+*** Solution
+
+** Exercise 5.52
+
+As a counterpoint to [[*Exercise 5.51][Exercise 5.51]], modify the compiler so that it compiles Scheme procedures into sequences of C instructions. Compile the metacircular evaluator of Section 4.1 to produce a Scheme interpreter written in C.
+
+*** Solution
