@@ -160,3 +160,7 @@ zsdoc/data
 !/tests/_output/.gitkeep
 
 # End of https://www.toptal.com/developers/gitignore/api/rust,linux,emacs,vim,zsh,scheme,racket
+
+# Custom
+.history
+.vscode
