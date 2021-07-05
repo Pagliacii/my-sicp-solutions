@@ -1,0 +1,3 @@
+[submodule "src/chap5/Exercise 5.51"]
+	path = src/chap5/Exercise 5.51
+	url = git@github.com:Pagliacii/sicp-reg-machine.git
