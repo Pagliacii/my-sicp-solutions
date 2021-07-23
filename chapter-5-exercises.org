@@ -177,7 +177,7 @@ b. Iterative exponentiation:
    (assign val (op *) (reg b) (reg val))  ; val now contains b*b^(n-1)
    (goto (reg continue))                  ; return to caller
  base-case
-   (assign val (const 1))                 ; base case: b^1 = 0
+   (assign val (const 1))                 ; base case: b^0 = 1
    (goto (reg continue))                  ; return to caller
  expt-done)
 #+end_src
@@ -2521,6 +2521,8 @@ See [[file:./src/chap5/exercise-5.50.scm][exercise-5.50.scm]].
 Develop a rudimentary implementation of Scheme in C (or some other low-level language of your choice) by translating the explicit-control evaluator of Section 5.4 into C. In order to run this code you will need to also provide appropriate storage-allocation routines and other run-time support.
 
 *** Solution
+
+See [[file:src/chap5/Exercise 5.51/examples/ec_evaluator/main.rs][main.rs]].
 
 ** Exercise 5.52
 
