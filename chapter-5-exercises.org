@@ -2522,7 +2522,7 @@ Develop a rudimentary implementation of Scheme in C (or some other low-level lan
 
 *** Solution
 
-See `src/chap5/Exercise 5.51/examples/ec_evaluator` or [[https://github.com/Pagliacii/sicp-reg-machine/tree/main/examples/ec_evaluator][ec_evaluator]].
+See ~src/chap5/Exercise 5.51/examples/ec_evaluator~ or [[https://github.com/Pagliacii/sicp-reg-machine/tree/main/examples/ec_evaluator][ec_evaluator]].
 
 ** Exercise 5.52
 
